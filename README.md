@@ -8,6 +8,10 @@
 
 这个文件夹是临时的，关闭Zotero后会自动删除。
 
+![image](https://user-images.githubusercontent.com/51939531/214848994-efb607ff-6f5a-4639-9db8-42e7bfd602fb.png)
+
+引用选择的条目到Word。
+
 # 致谢
 
 本插件基于[模板](https://github.com/MuiseDestiny/zotero-addon-template)
