@@ -8,6 +8,7 @@ import { config } from "../package.json";
 import { getString, initLocale } from "./modules/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
 import Citation from "./modules/citation";
+import { citeFromSelectedItems } from "./modules/cite";
 
 async function onStartup() {
   await Promise.all([
@@ -16,64 +17,33 @@ async function onStartup() {
     Zotero.uiReadyPromise,
   ]);
   initLocale();
-  // ztoolkit.ProgressWindow.setIconURI(
-  //   "default",
-  //   `chrome://${config.addonRef}/content/icons/favicon.png`
-  // );
-
-  // const popupWin = new ztoolkit.ProgressWindow(config.addonName, {
-  //   closeOnClick: true,
-  //   closeTime: -1,
-  // })
-  //   .createLine({
-  //     text: getString("startup.begin"),
-  //     type: "default",
-  //     progress: 0,
-  //   })
-  //   .show();
-
-  // BasicExampleFactory.registerPrefs();
-
-  // BasicExampleFactory.registerNotifier();
-
-  // KeyExampleFactory.registerShortcuts();
-
-  // await Zotero.Promise.delay(1000);
-  // popupWin.changeLine({
-  //   progress: 30,
-  //   text: `[30%] ${getString("startup.begin")}`,
-  // });
-
-  // UIExampleFactory.registerStyleSheet();
-
-  // UIExampleFactory.registerRightClickMenuItem();
-
-  // UIExampleFactory.registerRightClickMenuPopup();
-
-  // UIExampleFactory.registerWindowMenuWithSeprator();
-
-  // await UIExampleFactory.registerExtraColumn();
-
-  // await UIExampleFactory.registerExtraColumnWithCustomCell();
-
-  // await UIExampleFactory.registerCustomCellRenderer();
-
-  // UIExampleFactory.registerLibraryTabPanel();
-
-  // await UIExampleFactory.registerReaderTabPanel();
-
-  // await Zotero.Promise.delay(1000);
-
-  // popupWin.changeLine({
-  //   progress: 100,
-  //   text: `[100%] ${getString("startup.finish")}`,
-  // });
-  // popupWin.startCloseTimer(5000);
-
-  // addon.hooks.onDialogEvents("dialogExample");
 
   const citation = new Citation()
   citation.listener(1000)
+
+  // 注册命令
+  ztoolkit.Prompt.register([
+    {
+      name: "引用选中",
+      label: "Citation",
+      when: () => {
+        return (
+          ZoteroPane.getSelectedItems().length > 0 &&
+          Zotero.Integration?.currentSession?.agent
+        )
+      },
+      callback: () => {
+        citeFromSelectedItems()
+      }
+    }
+  ])
+
+  // 注册快捷键
+  ztoolkit.Shortcut.register("event", {
+    id: "citation-cite-key",
+    key: "'",
+    callback: citeFromSelectedItems
+  })
 }
 
 function onShutdown(): void {

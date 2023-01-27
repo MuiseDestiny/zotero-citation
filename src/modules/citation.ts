@@ -1,7 +1,7 @@
 export default class Citation {
 	public session: { [key: string]: { search: any, itemIDs: number[] } } = {}
 	public intervalID!: number
-	public names = new Set();
+	// public names = new Set();
 	constructor() {
 	}
 
@@ -27,29 +27,31 @@ export default class Citation {
 					// @ts-ignore
 					await this.saveSearch(sessionID)
 				} else {
-					if (this.names.size > 0) {
-						const search = this.session[sessionID].search
-						search.name = `[Citation] ${[...this.names][0]}`
-						await search.saveTx()
-					}
+					// if (this.names.size > 0) {
+					// 	const search = this.session[sessionID].search
+					// 	search.name = `[Citation] ${[...this.names][0]}`
+					// 	await search.saveTx()
+					// }
 				}
 			}
 		}, t)
 		window.addEventListener("close", (event) => {
 			event.preventDefault()
-			this.clear()
+			try {
+				this.clear()
+			} catch {}
 			window.setTimeout(() => {
 				window.close()
 			})
 		})
-		let execCommand = Zotero.Integration.execCommand
-		Zotero.Integration.execCommand = async (agent: string, cmd: string, document: string, templateVersion: any) => {
-			ztoolkit.log(agent, cmd, document, templateVersion)
-			if (agent.includes("Word")) {
-				this.names.add(document)
-			}
-			execCommand(agent, cmd, document, templateVersion)
-		};
+		// let execCommand = Zotero.Integration.execCommand
+		// Zotero.Integration.execCommand = async (agent: string, cmd: string, document: string, templateVersion: any) => {
+		// 	ztoolkit.log(agent, cmd, document, templateVersion)
+		// 	if (agent.includes("Word")) {
+		// 		this.names.add(document)
+		// 	}
+		// 	execCommand(agent, cmd, document, templateVersion)
+		// };
 	}
 
 	public markItems(sessionID: string, itemIDs: number[]) {
@@ -78,6 +80,7 @@ export default class Citation {
 		ztoolkit.log("Save search")
 		await s.saveTx()
 		this.session[sessionID].search = s
+
 	}
 
 	/**
@@ -90,5 +93,4 @@ export default class Citation {
 			await this.session[sessionID].search.eraseTx()
 		})
 	}
-	
 }
