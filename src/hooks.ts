@@ -19,7 +19,7 @@ async function onStartup() {
   initLocale();
 
   const citation = new Citation()
-  citation.listener(1000)
+  citation.listener(1000);
 
   // 注册命令
   ztoolkit.Prompt.register([
@@ -39,6 +39,7 @@ async function onStartup() {
   ])
 
   // 注册快捷键
+  
   ztoolkit.Shortcut.register("event", {
     id: "citation-cite-key",
     key: "'",

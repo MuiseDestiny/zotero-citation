@@ -1,5 +1,5 @@
 export default class Citation {
-	public session: { [key: string]: { search: any, itemIDs: number[] } } = {}
+	public session: { [key: string]: { search: any, itemIDs: number[]; pending: boolean} } = {}
 	public intervalID!: number
 	// public names = new Set();
 	constructor() {
@@ -12,26 +12,20 @@ export default class Citation {
 		this.intervalID = window.setInterval(async () => {
 			if (!Zotero.ZoteroCitation) { this.clear() }
 			for (let sessionID in Zotero.Integration.sessions) {
-				let sessionData = Zotero.Integration.sessions[sessionID]
-				if (!(sessionData.agent as string).includes("Word")) { continue }
+				let session = Zotero.Integration.sessions[sessionID]
+				if (!(session.agent as string).includes("Word")) { continue }
 				if (sessionID in this.session == false) {
-					this.session[sessionID] = { search: undefined, itemIDs: [] }
+					this.session[sessionID] = { search: undefined, itemIDs: [], pending: false}
 				}
 
-				let itemIDs = Object.keys(sessionData.citationsByItemID).map(Number) as number[]
+				let itemIDs = session.getItems().map((i: _ZoteroTypes.Zotero)=>Number(i.id)) as number[]
 				this.markItems(sessionID, itemIDs)
 				this.session[sessionID].itemIDs = itemIDs
 
-				if (!this.session[sessionID].search) {
-					this.session[sessionID].search = true
+				if (!this.session[sessionID].search && !this.session[sessionID].pending) {
+					this.session[sessionID].pending = true
 					// @ts-ignore
 					await this.saveSearch(sessionID)
-				} else {
-					// if (this.names.size > 0) {
-					// 	const search = this.session[sessionID].search
-					// 	search.name = `[Citation] ${[...this.names][0]}`
-					// 	await search.saveTx()
-					// }
 				}
 			}
 		}, t)
@@ -44,14 +38,25 @@ export default class Citation {
 				window.close()
 			})
 		})
-		// let execCommand = Zotero.Integration.execCommand
-		// Zotero.Integration.execCommand = async (agent: string, cmd: string, document: string, templateVersion: any) => {
-		// 	ztoolkit.log(agent, cmd, document, templateVersion)
-		// 	if (agent.includes("Word")) {
-		// 		this.names.add(document)
-		// 	}
-		// 	execCommand(agent, cmd, document, templateVersion)
-		// };
+		const execCommand = Zotero.Integration.execCommand
+		let session = this.session
+		// @ts-ignore
+		const OS = window.OS
+		// @ts-ignore
+		Zotero.Integration.execCommand = async function (agent, command, docId) {
+			await execCommand(...arguments);
+			let id = window.setInterval(async () => {
+				const sessionID = Zotero.Integration?.currentSession?.sessionID
+				if (!sessionID || !session[sessionID]) { return }
+				let _session = session[sessionID]
+				while (_session.pending && !_session.search) {await Zotero.Promise.delay(100)}
+				if (_session.search.name == `[Citation] ${sessionID}`) {
+					const filename = OS.Path.basename(docId)
+					_session.search.name = `[Citation] ${filename}`
+				}
+				window.clearInterval(id)
+			})
+		}
 	}
 
 	public markItems(sessionID: string, itemIDs: number[]) {
@@ -74,13 +79,12 @@ export default class Citation {
 		let s = new Zotero.Search();
 		s.addCondition("extra", "contains", `citation: ${sessionID}`);
 		await s.search();
-		s.libraryID = 1
 		s.name = `[Citation] ${sessionID}`
-		s = s.clone()
+		s = s.clone(1)
 		ztoolkit.log("Save search")
 		await s.saveTx()
 		this.session[sessionID].search = s
-
+		this.session[sessionID].pending = false
 	}
 
 	/**

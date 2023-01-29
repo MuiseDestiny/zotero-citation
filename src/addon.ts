@@ -1,4 +1,5 @@
-import ZoteroToolkit from "zotero-plugin-toolkit/dist/index";
+// import ZoteroToolkit from "zotero-plugin-toolkit/dist/index";
+import ZoteroToolkit from "zotero-plugin-toolkit/dist/index"
 import { ColumnOptions } from "zotero-plugin-toolkit/dist/helpers/virtualizedTable";
 import hooks from "./hooks";
 
