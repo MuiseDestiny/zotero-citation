@@ -22,10 +22,12 @@ export default class Citation {
 				this.markItems(sessionID, itemIDs)
 				this.session[sessionID].itemIDs = itemIDs
 
-				if (!this.session[sessionID].search && !this.session[sessionID].pending) {
+				if (!this.session[sessionID].search && !this.session[sessionID].pending && itemIDs.length > 0) {
 					this.session[sessionID].pending = true
+					let id = ZoteroPane.collectionsView.getSelectedCollection().id
 					// @ts-ignore
 					await this.saveSearch(sessionID)
+					ZoteroPane.collectionsView.selectCollection(id)
 				}
 			}
 		}, t)
