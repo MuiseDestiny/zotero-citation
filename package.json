@@ -1,6 +1,6 @@
 {
   "name": "zotero-citation",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "自动生成MS Word引用文献的分类，选中条目按住引号键，快速插入到Word",
   "config": {
     "addonName": "Zotero Citation",
