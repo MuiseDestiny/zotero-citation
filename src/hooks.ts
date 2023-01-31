@@ -17,7 +17,6 @@ async function onStartup() {
     Zotero.uiReadyPromise,
   ]);
   initLocale();
-
   const citation = new Citation()
   citation.listener(1000);
 

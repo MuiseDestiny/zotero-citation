@@ -77,7 +77,6 @@ export default class Citation {
 	}
 
 	public async saveSearch(sessionID: string) {
-		// @ts-ignore
 		let s = new Zotero.Search();
 		s.addCondition("extra", "contains", `citation: ${sessionID}`);
 		await s.search();
