@@ -1,5 +1,10 @@
 # Zotero Ciation
 
+[![Latest release](https://img.shields.io/github/v/release/MuiseDestiny/zotero-citation)](https://github.com/MuiseDestiny/zotero-citation/releases)
+![Release Date](https://img.shields.io/github/release-date/MuiseDestiny/zotero-citation?color=9cf)
+[![License](https://img.shields.io/github/license/MuiseDestiny/zotero-citation)](https://github.com/MuiseDestiny/zotero-citation/blob/master/LICENSE)
+![Downloads latest release](https://img.shields.io/github/downloads/MuiseDestiny/zotero-citation/latest/total?color=yellow)
+
 ## 功能
 
 ### 1. 将 Word 中的引文整理到 Zotero
