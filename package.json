@@ -37,7 +37,7 @@
   "homepage": "https://github.com/muisedestiny/zotero-citation#readme",
   "dependencies": {
     "path": "^0.12.7",
-    "zotero-plugin-toolkit": "^1.1.2"
+    "zotero-plugin-toolkit": "^1.1.5"
   },
   "devDependencies": {
     "@types/node": "^18.11.18",
@@ -48,7 +48,7 @@
     "minimist": "^1.2.7",
     "release-it": "^15.6.0",
     "replace-in-file": "^6.3.5",
-    "typescript": "^4.9.4",
-    "zotero-types": "^1.0.6"
+    "typescript": "^4.9.5",
+    "zotero-types": "^1.0.7"
   }
 }
