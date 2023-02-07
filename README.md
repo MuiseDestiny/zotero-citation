@@ -31,6 +31,11 @@
 
 ![cite-item-by-quote-key](https://user-images.githubusercontent.com/44738481/215477177-c0a58567-a5e4-410c-a8d4-c1207fab02b0.gif)
 
+## TODO
+
+- [ ] Word 引文序号如，[1]在 Zotero 里标注
+- [ ] 适配 Mac 用户快捷引用，目前版本 Mac 用户只能使用功能1
+
 ## 致谢
 
 本插件基于 [模板](https://github.com/MuiseDestiny/zotero-addon-template)。
