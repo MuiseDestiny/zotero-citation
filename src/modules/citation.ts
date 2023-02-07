@@ -1,8 +1,11 @@
+import { config } from "../../package.json";
+
 export default class Citation {
 	public session: { [key: string]: { search: any, itemIDs: number[]; pending: boolean} } = {}
 	public intervalID!: number
-	// public names = new Set();
+	private prefix: string;
 	constructor() {
+		this.prefix = Zotero.Prefs.get(`${config.addonRef}.prefix`) as string
 	}
 
 	/**
@@ -52,9 +55,9 @@ export default class Citation {
 				if (!sessionID || !session[sessionID]) { return }
 				let _session = session[sessionID]
 				while (_session.pending && !_session.search) {await Zotero.Promise.delay(100)}
-				if (_session.search.name == `[Citation] ${sessionID}`) {
-					const filename = OS.Path.basename(docId)
-					_session.search.name = `[Citation] ${filename}`
+				if (_session.search.name.includes(sessionID)) {
+					_session.search.name = _session.search.name.replace(sessionID, OS.Path.basename(docId))
+					await _session.search.saveTx()
 				}
 				window.clearInterval(id)
 			})
@@ -80,7 +83,7 @@ export default class Citation {
 		let s = new Zotero.Search();
 		s.addCondition("extra", "contains", `citation: ${sessionID}`);
 		await s.search();
-		s.name = `[Citation] ${sessionID}`
+		s.name = `${this.prefix} ${sessionID}`
 		s = s.clone(1)
 		ztoolkit.log("Save search")
 		await s.saveTx()

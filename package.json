@@ -1,6 +1,6 @@
 {
   "name": "zotero-citation",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "让Zotero与Word联动更方便",
   "config": {
     "addonName": "Zotero Citation",
@@ -37,18 +37,18 @@
   "homepage": "https://github.com/muisedestiny/zotero-citation#readme",
   "dependencies": {
     "path": "^0.12.7",
-    "zotero-plugin-toolkit": "^1.1.5"
+    "zotero-plugin-toolkit": "^1.1.11"
   },
   "devDependencies": {
-    "@types/node": "^18.11.18",
+    "@types/node": "^18.11.19",
     "compressing": "^1.7.0",
     "concurrently": "^7.6.0",
     "cross-env": "^7.0.3",
-    "esbuild": "^0.17.5",
+    "esbuild": "^0.17.6",
     "minimist": "^1.2.7",
     "release-it": "^15.6.0",
     "replace-in-file": "^6.3.5",
     "typescript": "^4.9.5",
-    "zotero-types": "^1.0.7"
+    "zotero-types": "^1.0.8"
   }
 }
