@@ -27,10 +27,10 @@ export default class Citation {
 
 				if (!this.session[sessionID].search && !this.session[sessionID].pending && itemIDs.length > 0) {
 					this.session[sessionID].pending = true
-					let id = ZoteroPane.collectionsView.getSelectedCollection().id
+					let id = ZoteroPane.collectionsView.getSelectedCollection()?.id
 					// @ts-ignore
 					await this.saveSearch(sessionID)
-					ZoteroPane.collectionsView.selectCollection(id)
+					id && ZoteroPane.collectionsView.selectCollection(id)
 				}
 			}
 		}, t)
@@ -49,12 +49,13 @@ export default class Citation {
 		const OS = window.OS
 		// @ts-ignore
 		Zotero.Integration.execCommand = async function (agent, command, docId) {
+			console.log(...arguments)
 			await execCommand(...arguments);
 			let id = window.setInterval(async () => {
 				const sessionID = Zotero.Integration?.currentSession?.sessionID
 				if (!sessionID || !session[sessionID]) { return }
 				let _session = session[sessionID]
-				while (_session.pending && !_session.search) {await Zotero.Promise.delay(100)}
+				while (!_session.search) {await Zotero.Promise.delay(10)}
 				if (_session.search.name.includes(sessionID)) {
 					_session.search.name = _session.search.name.replace(sessionID, OS.Path.basename(docId))
 					await _session.search.saveTx()
@@ -83,7 +84,7 @@ export default class Citation {
 		let s = new Zotero.Search();
 		s.addCondition("extra", "contains", `citation: ${sessionID}`);
 		await s.search();
-		s.name = `${this.prefix} ${sessionID}`
+		s.name = `${this.prefix}${sessionID}`
 		s = s.clone(1)
 		ztoolkit.log("Save search")
 		await s.saveTx()
