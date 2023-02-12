@@ -9,7 +9,7 @@
 
 ### 1. 将 Word 中的引文整理到 Zotero
 
-![image](https://user-images.githubusercontent.com/51939531/214794436-d1688d9b-652d-40ba-9af8-d397a4f26ae2.png)
+![image](https://user-images.githubusercontent.com/51939531/218295007-d603f9b8-3147-4cd6-9e7e-c75351889d84.png)
 
 当你在 Word 中插入参考文献时，自动将打开的 Word 的所有引用整理到一个文件夹下。
 
