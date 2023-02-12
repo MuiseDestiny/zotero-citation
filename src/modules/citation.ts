@@ -1,11 +1,12 @@
 import { config } from "../../package.json";
 
 export default class Citation {
-	public session: { [key: string]: { search: any, itemIDs: number[]; pending: boolean} } = {}
+	public sessions: { [sessionID: string]: { search: any, itemIDs: number[]; pending: boolean} } = {}
 	public intervalID!: number
 	private prefix: string;
 	constructor() {
 		this.prefix = Zotero.Prefs.get(`${config.addonRef}.prefix`) as string
+		Zotero.ZoteroCitation.api.sessions = this.sessions
 	}
 
 	/**
@@ -13,25 +14,31 @@ export default class Citation {
 	 */
 	public listener(t: number) {
 		this.intervalID = window.setInterval(async () => {
-			if (!Zotero.ZoteroCitation) { this.clear() }
-			for (let sessionID in Zotero.Integration.sessions) {
-				let session = Zotero.Integration.sessions[sessionID]
+			if (!Zotero.ZoteroCitation) { return this.clear() }
+			if (!Zotero.Integration.currentSession) { return }
+			let sessions = Zotero.Integration.sessions
+			let _sessions = this.sessions
+			for (let sessionID in sessions) {
+				let session = sessions[sessionID], _session
 				if (!(session.agent as string).includes("Word")) { continue }
-				if (sessionID in this.session == false) {
-					this.session[sessionID] = { search: undefined, itemIDs: [], pending: false}
-				}
-
-				let itemIDs = session.getItems().map((i: _ZoteroTypes.Zotero)=>Number(i.id)) as number[]
-				this.markItems(sessionID, itemIDs)
-				this.session[sessionID].itemIDs = itemIDs
-
-				if (!this.session[sessionID].search && !this.session[sessionID].pending && itemIDs.length > 0) {
-					this.session[sessionID].pending = true
-					let id = ZoteroPane.collectionsView.getSelectedCollection()?.id
-					// @ts-ignore
+				// 初始化对象的session
+				if (sessionID in _sessions) {
+					_session = _sessions[sessionID]
+				} else {
+					_sessions[sessionID] = _session = { search: undefined, itemIDs: [], pending: true } as SessionData
 					await this.saveSearch(sessionID)
-					id && ZoteroPane.collectionsView.selectCollection(id)
+					_session.pending = false
 				}
+				// 其它线程等待search创建
+				while (_session.pending == true && !_session.search) {
+					await Zotero.Promise.delay(10)
+				}
+				// search初始化完毕
+				let citationsByItemID = session.citationsByItemID
+				// 分析排序
+				let sortedItemIDs = this.getSortedItemIDs(session.citationsByIndex)
+				this.markItems(sessionID, citationsByItemID, sortedItemIDs)
+				_session.itemIDs = session.getItems().map((item: Zotero.Item)=>item.id)
 			}
 		}, t)
 		window.addEventListener("close", (event) => {
@@ -44,7 +51,7 @@ export default class Citation {
 			})
 		})
 		const execCommand = Zotero.Integration.execCommand
-		let session = this.session
+		let _sessions = this.sessions
 		// @ts-ignore
 		const OS = window.OS
 		// @ts-ignore
@@ -53,8 +60,8 @@ export default class Citation {
 			await execCommand(...arguments);
 			let id = window.setInterval(async () => {
 				const sessionID = Zotero.Integration?.currentSession?.sessionID
-				if (!sessionID || !session[sessionID]) { return }
-				let _session = session[sessionID]
+				if (!sessionID || !_sessions[sessionID]) { return }
+				let _session = _sessions[sessionID]
 				while (!_session.search) {await Zotero.Promise.delay(10)}
 				if (_session.search.name.includes(sessionID)) {
 					_session.search.name = _session.search.name.replace(sessionID, OS.Path.basename(docId))
@@ -64,17 +71,51 @@ export default class Citation {
 			})
 		}
 	}
+	public getSortedItemIDs(citationsByIndex: any) {
+		let SortedItemIDs: number[] = [];
+		for (let i in citationsByIndex) {
+			citationsByIndex[i].citationItems.forEach((item: {id: number}) => {
+				if (SortedItemIDs.indexOf(item.id) == -1) {
+					SortedItemIDs.push(item.id)
+				}
+			})
+		}
+		console.log(SortedItemIDs)
+		return SortedItemIDs
 
-	public markItems(sessionID: string, itemIDs: number[]) {
-		itemIDs.forEach(async (id: number) => {
+	}
+	public markItems(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[]) {
+		const searchKey = this.sessions[sessionID].search.key
+		Object.keys(citationsByItemID).forEach(async (key: string) => {
+			let id = Number(key)
+			// if (this.sessions[sessionID].itemIDs.indexOf(id) == -1) {
 			const item = Zotero.Items.get(id)
-			if (this.session[sessionID].itemIDs.indexOf(id) == -1) {
-				await ztoolkit.ExtraField.setExtraField(item, "citation", String(sessionID))
+			let data: CitationData = {}
+			const citationString = ztoolkit.ExtraField.getExtraField(item, "citation") as string
+			try {
+				data = JSON.parse(citationString)
+			} catch { }
+			data[searchKey] = {
+				sessionID: sessionID,
+				plainCitation: sortedItemIDs.indexOf(id) + ": " + citationsByItemID[id].map(i=>i.properties.plainCitation).join(", ")
 			}
+			// 冗余清理
+			const searchKeys = Object.values(this.sessions).map((session: SessionData) => session.search?.key)
+			const dataKeys = Object.keys(data)
+			for (let i = 0; i < dataKeys.length; i++) {
+				let dataKey = dataKeys[i]
+				if (searchKeys.indexOf(dataKey) == -1) {
+					delete data[dataKey]
+				}
+			}
+			if (citationString != JSON.stringify(data)) {
+				await ztoolkit.ExtraField.setExtraField(item, "citation", JSON.stringify(data))
+			}
+			// }
 		})
-		this.session[sessionID].itemIDs.forEach(async (id: number) => {
-			const item = Zotero.Items.get(id)
-			if (itemIDs.indexOf(id) == -1) {
+		this.sessions[sessionID].itemIDs.forEach(async (id: number) => {
+			if (Object.keys(citationsByItemID).indexOf(String(id)) == -1) {
+				const item = Zotero.Items.get(id)
 				await ztoolkit.ExtraField.setExtraField(item, "citation", "")
 			}
 		})
@@ -82,14 +123,12 @@ export default class Citation {
 
 	public async saveSearch(sessionID: string) {
 		let s = new Zotero.Search();
-		s.addCondition("extra", "contains", `citation: ${sessionID}`);
+		s.addCondition("extra", "contains", `"sessionID":"${sessionID}"`);
 		await s.search();
 		s.name = `${this.prefix}${sessionID}`
 		s = s.clone(1)
-		ztoolkit.log("Save search")
-		await s.saveTx()
-		this.session[sessionID].search = s
-		this.session[sessionID].pending = false
+		await s.saveTx({ skipSelect: true})
+		this.sessions[sessionID].search = s
 	}
 
 	/**
@@ -97,9 +136,13 @@ export default class Citation {
 	 */
 	public clear() {
 		window.clearInterval(this.intervalID)
-		Object.keys(this.session).forEach(async (sessionID: string) => {
+		Object.values(this.sessions).forEach(async (session: SessionData) => {
 			// @ts-ignore
-			await this.session[sessionID].search.eraseTx()
+			await session.search.eraseTx()
+			session.itemIDs.forEach(async (id: number) => {
+				const item = Zotero.Items.get(id)
+				await ztoolkit.ExtraField.setExtraField(item, "citation", "")
+			})
 		})
 	}
 }

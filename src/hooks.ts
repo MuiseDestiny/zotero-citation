@@ -2,6 +2,7 @@ import { config } from "../package.json";
 import { getString, initLocale } from "./modules/locale";
 import Citation from "./modules/citation";
 import { citeFromSelectedItems } from "./modules/cite";
+import Views from "./modules/views";
 
 async function onStartup() {
   await Promise.all([
@@ -14,10 +15,12 @@ async function onStartup() {
   const citation = new Citation()
   citation.listener(1000);
 
+  const views = new Views()
+  await views.createCitationColumn();
   // 注册命令
   ztoolkit.Prompt.register([
     {
-      name: "引用选中",
+      name: "引用",
       label: "Citation",
       when: () => {
         return (

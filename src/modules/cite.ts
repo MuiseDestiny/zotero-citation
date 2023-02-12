@@ -4,7 +4,6 @@ export const citeFromSelectedItems = async () => {
 	Zotero.Integration.Session.prototype.cite = async function (field: any, addNote = false) {
 		var newField;
 		var citation;
-
 		if (field) {
 			field = await Zotero.Integration.Field.loadExisting(field);
 
@@ -82,9 +81,6 @@ export const citeFromSelectedItems = async () => {
 		ZoteroPane.getSelectedItems().map(i => {
 			io.citation.citationItems.push({ id: i.id })
 		})
-		// io.citation.citationItems = ZoteroPane.getSelectedItems().map(i => {
-		//     return { id: i.id }
-		// })
 
 		if (!io.citation.citationItems.length) {
 			// Try to delete new field on cancel

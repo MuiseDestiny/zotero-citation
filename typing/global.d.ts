@@ -17,3 +17,16 @@ declare const rootURI: string;
 declare const addon: import("../src/addon").default;
 
 declare const __env__: "production" | "development";
+
+interface CitationData {
+  [searchKey: string]: {
+    sessionID: string,
+    plainCitation: string
+  }
+}
+
+interface SessionData {
+  search: undefined | Zotero.Search,
+  itemIDs: number[],
+  pending: boolean
+}
