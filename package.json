@@ -37,7 +37,7 @@
   "homepage": "https://github.com/muisedestiny/zotero-citation#readme",
   "dependencies": {
     "path": "^0.12.7",
-    "zotero-plugin-toolkit": "^1.1.11"
+    "zotero-plugin-toolkit": "^2.0.3"
   },
   "devDependencies": {
     "@types/node": "^18.13.0",
