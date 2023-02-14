@@ -4,9 +4,11 @@ export default class Citation {
 	public sessions: { [sessionID: string]: { search: any, itemIDs: number[]; pending: boolean} } = {}
 	public intervalID!: number
 	private prefix: string;
+	private cache: { [id: string]: CitationData } = {};
 	constructor() {
-		this.prefix = Zotero.Prefs.get(`${config.addonRef}.prefix`) as string
+		this.prefix = Zotero.Prefs.get(`${config.addonRef}.prefix`) as string || "[Citation]"
 		Zotero.ZoteroCitation.api.sessions = this.sessions
+		Zotero.ZoteroCitation.api.cache = this.cache
 	}
 
 	/**
@@ -80,50 +82,53 @@ export default class Citation {
 				}
 			})
 		}
-		console.log(SortedItemIDs)
 		return SortedItemIDs
-
 	}
 	public markItems(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[]) {
+		let getExtraField = (item: Zotero.Item, key: string, defaultValue: any = []) => {
+			let data: any
+			try {
+				data = JSON.parse(
+					ztoolkit.ExtraField.getExtraField(item, key) as string
+				)
+			} catch {
+				data = defaultValue
+			}
+			return data
+		} 
 		const searchKey = this.sessions[sessionID].search.key
 		Object.keys(citationsByItemID).forEach(async (key: string) => {
 			let id = Number(key)
-			// if (this.sessions[sessionID].itemIDs.indexOf(id) == -1) {
 			const item = Zotero.Items.get(id)
-			let data: CitationData = {}
-			const citationString = ztoolkit.ExtraField.getExtraField(item, "citation") as string
-			try {
-				data = JSON.parse(citationString)
-			} catch { }
-			data[searchKey] = {
+			const data: CitationData = (this.cache[id] ??= {})
+			const info = {
 				sessionID: sessionID,
 				plainCitation: sortedItemIDs.indexOf(id) + ": " + citationsByItemID[id].map(i=>i.properties.plainCitation).join(", ")
 			}
-			// 冗余清理
-			const searchKeys = Object.values(this.sessions).map((session: SessionData) => session.search?.key)
-			const dataKeys = Object.keys(data)
-			for (let i = 0; i < dataKeys.length; i++) {
-				let dataKey = dataKeys[i]
-				if (searchKeys.indexOf(dataKey) == -1) {
-					delete data[dataKey]
-				}
+			if (JSON.stringify(data[searchKey]) == JSON.stringify(info)) { return }
+			data[searchKey] = info
+			ztoolkit.ItemTree.refresh()
+			let extraSessionIDs = getExtraField(item, "sessionIDs")
+			if (extraSessionIDs.indexOf(sessionID) == -1) {
+				extraSessionIDs.push(sessionID)
 			}
-			if (citationString != JSON.stringify(data)) {
-				await ztoolkit.ExtraField.setExtraField(item, "citation", JSON.stringify(data))
-			}
-			// }
+			// 数据清理
+			extraSessionIDs = extraSessionIDs.filter((id: string) => Object.keys(this.sessions).indexOf(id) != -1)
+			await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", JSON.stringify(extraSessionIDs))
 		})
 		this.sessions[sessionID].itemIDs.forEach(async (id: number) => {
 			if (Object.keys(citationsByItemID).indexOf(String(id)) == -1) {
 				const item = Zotero.Items.get(id)
-				await ztoolkit.ExtraField.setExtraField(item, "citation", "")
+				let extraSessionID = getExtraField(item, "sessionIDs")
+				extraSessionID = extraSessionID.filter((id: string) => id != sessionID)
+				await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", JSON.stringify(extraSessionID))
 			}
 		})
 	}
 
 	public async saveSearch(sessionID: string) {
 		let s = new Zotero.Search();
-		s.addCondition("extra", "contains", `"sessionID":"${sessionID}"`);
+		s.addCondition("extra", "contains", sessionID);
 		await s.search();
 		s.name = `${this.prefix}${sessionID}`
 		s = s.clone(1)
@@ -141,7 +146,7 @@ export default class Citation {
 			await session.search.eraseTx()
 			session.itemIDs.forEach(async (id: number) => {
 				const item = Zotero.Items.get(id)
-				await ztoolkit.ExtraField.setExtraField(item, "citation", "")
+				await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", "")
 			})
 		})
 	}

@@ -23,13 +23,8 @@ class Views {
           Zotero.ZoteroCitation.api.sessions[currentSession.sessionID].search
         )
         if (!search) { return "" }
-        const citation = ztoolkit.ExtraField.getExtraField(item, "citation") as string
-        if (citation) {
-          let data: CitationData = {}
-          try {
-            data = JSON.parse(citation) as CitationData
-          } catch {}
-          console.log(data)
+        const data = Zotero.ZoteroCitation.api.cache[item.id] as CitationData
+        if (data) { 
           return (data[search.key] && data[search.key]?.plainCitation) || ""
         } else {
           return ""
