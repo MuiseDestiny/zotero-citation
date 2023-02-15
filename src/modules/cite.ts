@@ -116,7 +116,7 @@ export const citeFromSelectedItems = async () => {
 		return citations;
 	};
 	Zotero.Integration.warnOutdatedTemplate = () => false
-	await Zotero.Integration.execCommand(Zotero.Integration.currentSession.agent, 'addEditCitation', "doc")
+	await Zotero.Integration.execCommand(Zotero.Integration?.currentSession?.agent || "WinWord", 'addEditCitation', "doc")
 	Zotero.Integration.Session.prototype.cite = cite
 	Zotero.Integration.warnOutdatedTemplate = warnOutdatedTemplate
 }
