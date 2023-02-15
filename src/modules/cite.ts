@@ -1,6 +1,5 @@
 export const citeFromSelectedItems = async () => {
 	const cite = Zotero.Integration.Session.prototype.cite
-	const warnOutdatedTemplate = Zotero.Integration.warnOutdatedTemplate
 	Zotero.Integration.Session.prototype.cite = async function (field: any, addNote = false) {
 		var newField;
 		var citation;
@@ -45,37 +44,9 @@ export const citeFromSelectedItems = async () => {
 			fieldIndexPromise = Zotero.Promise.resolve(-1);
 			citationsByItemIDPromise = Zotero.Promise.resolve(this.citationsByItemID);
 		}
-
-		var previewFn = async function (citation) {
-			let idx = await fieldIndexPromise;
-			await citationsByItemIDPromise;
-
-			var [citations, fieldToCitationIdxMapping, citationToFieldIdxMapping] = this.getCiteprocLists();
-			for (var prevIdx = idx - 1; prevIdx >= 0; prevIdx--) {
-				if (prevIdx in fieldToCitationIdxMapping) break;
-			}
-			let sliceIdx = fieldToCitationIdxMapping[prevIdx] + 1;
-			if (sliceIdx == NaN) {
-				sliceIdx = 0;
-			}
-			let citationsPre = citations.slice(0, sliceIdx);
-			let citationsPost = citations.slice(sliceIdx);
-			let citationID = citation.citationID;
-			try {
-				var result = this.style.previewCitationCluster(citation, citationsPre, citationsPost, "rtf");
-			} catch (e) {
-				throw e;
-			} finally {
-				// CSL.previewCitationCluster() sets citationID, which means that we do not mark it
-				// as a new citation in Session.addCitation() if the ID is still present
-				citation.citationID = citationID;
-			}
-			return result;
-		}.bind(this);
-
 		var io = new Zotero.Integration.CitationEditInterface(
 			citation, this.style.opt.sort_citations,
-			fieldIndexPromise, citationsByItemIDPromise, previewFn
+			fieldIndexPromise, citationsByItemIDPromise
 		);
 		console.log(io)
 		ZoteroPane.getSelectedItems().map(i => {
@@ -115,10 +86,13 @@ export const citeFromSelectedItems = async () => {
 		}
 		return citations;
 	};
-	Zotero.Integration.warnOutdatedTemplate = () => false
-	await Zotero.Integration.execCommand(Zotero.Integration?.currentSession?.agent || "WinWord", 'addEditCitation', "doc")
+	await Zotero.Integration.execCommand(
+		Zotero.Integration?.currentSession?.agent || "WinWord",
+		'addEditCitation',
+		"__doc__",
+		1
+	)
 	Zotero.Integration.Session.prototype.cite = cite
-	Zotero.Integration.warnOutdatedTemplate = warnOutdatedTemplate
 }
 
 

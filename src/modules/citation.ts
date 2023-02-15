@@ -64,8 +64,8 @@ export default class Citation {
 				const sessionID = Zotero.Integration?.currentSession?.sessionID
 				if (!sessionID || !_sessions[sessionID]) { return }
 				let _session = _sessions[sessionID]
-				while (!_session.search) {await Zotero.Promise.delay(10)}
-				if (_session.search.name.includes(sessionID)) {
+				while (!_session.search) { await Zotero.Promise.delay(10) }
+				if (_session.search.name.endsWith(sessionID) && !docId.endsWith("__doc__")) {
 					_session.search.name = _session.search.name.replace(sessionID, OS.Path.basename(docId))
 					await _session.search.saveTx()
 				}
@@ -73,6 +73,7 @@ export default class Citation {
 			})
 		}
 	}
+	
 	public getSortedItemIDs(citationsByIndex: any) {
 		let SortedItemIDs: number[] = [];
 		for (let i in citationsByIndex) {
@@ -84,6 +85,7 @@ export default class Citation {
 		}
 		return SortedItemIDs
 	}
+
 	public markItems(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[]) {
 		let getExtraField = (item: Zotero.Item, key: string, defaultValue: any = []) => {
 			let data: any
