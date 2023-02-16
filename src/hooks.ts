@@ -11,7 +11,9 @@ async function onStartup() {
     Zotero.uiReadyPromise,
   ]);
   initLocale();
-  await Zotero.Promise.delay(3000)
+  ztoolkit.UI.basicOptions.ui.enableElementRecord = false
+  ztoolkit.UI.basicOptions.ui.enableElementJSONLog = false
+
   const citation = new Citation()
   citation.listener(1000);
 

@@ -92,6 +92,8 @@ export const citeFromSelectedItems = async () => {
 		"__doc__",
 		1
 	)
+
+
 	Zotero.Integration.Session.prototype.cite = cite
 }
 

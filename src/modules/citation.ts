@@ -15,9 +15,10 @@ export default class Citation {
 	 * 监听session状态以生成搜索目录
 	 */
 	public listener(t: number) {
+		let isExecCommand = false
 		this.intervalID = window.setInterval(async () => {
 			if (!Zotero.ZoteroCitation) { return this.clear() }
-			if (!Zotero.Integration.currentSession) { return }
+			if (!Zotero.Integration.currentSession || isExecCommand) { return }
 			let sessions = Zotero.Integration.sessions
 			let _sessions = this.sessions
 			for (let sessionID in sessions) {
@@ -59,7 +60,9 @@ export default class Citation {
 		// @ts-ignore
 		Zotero.Integration.execCommand = async function (agent, command, docId) {
 			console.log(...arguments)
+			isExecCommand = true
 			await execCommand(...arguments);
+			isExecCommand = false
 			let id = window.setInterval(async () => {
 				const sessionID = Zotero.Integration?.currentSession?.sessionID
 				if (!sessionID || !_sessions[sessionID]) { return }
@@ -92,7 +95,7 @@ export default class Citation {
 			try {
 				data = JSON.parse(
 					ztoolkit.ExtraField.getExtraField(item, key) as string
-				)
+				) as string[]
 			} catch {
 				data = defaultValue
 			}
@@ -116,11 +119,16 @@ export default class Citation {
 			}
 			// 数据清理
 			extraSessionIDs = extraSessionIDs.filter((id: string) => Object.keys(this.sessions).indexOf(id) != -1)
-			await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", JSON.stringify(extraSessionIDs))
+			const _extraSessionIDs: string = JSON.stringify(extraSessionIDs)
+			if (_extraSessionIDs != ztoolkit.ExtraField.getExtraField(item, "sessionIDs")) {
+				await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", _extraSessionIDs)
+			}
 		})
+		console.log("citationsByItemID", Object.keys(citationsByItemID).length)
 		this.sessions[sessionID].itemIDs.forEach(async (id: number) => {
 			if (Object.keys(citationsByItemID).indexOf(String(id)) == -1) {
 				const item = Zotero.Items.get(id)
+				delete this.cache[id]
 				let extraSessionID = getExtraField(item, "sessionIDs")
 				extraSessionID = extraSessionID.filter((id: string) => id != sessionID)
 				await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", JSON.stringify(extraSessionID))
