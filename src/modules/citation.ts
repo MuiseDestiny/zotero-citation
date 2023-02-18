@@ -102,6 +102,7 @@ export default class Citation {
 			return data
 		} 
 		const searchKey = this.sessions[sessionID].search.key
+		let isUpdate = false
 		Object.keys(citationsByItemID).forEach(async (key: string) => {
 			let id = Number(key)
 			const item = Zotero.Items.get(id)
@@ -112,7 +113,7 @@ export default class Citation {
 			}
 			if (JSON.stringify(data[searchKey]) == JSON.stringify(info)) { return }
 			data[searchKey] = info
-			ztoolkit.ItemTree.refresh()
+			isUpdate = true
 			let extraSessionIDs = getExtraField(item, "sessionIDs")
 			if (extraSessionIDs.indexOf(sessionID) == -1) {
 				extraSessionIDs.push(sessionID)
@@ -124,7 +125,8 @@ export default class Citation {
 				await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", _extraSessionIDs)
 			}
 		})
-		console.log("citationsByItemID", Object.keys(citationsByItemID).length)
+		if (isUpdate) { ztoolkit.ItemTree.refresh() }
+		// 这里不需要手动更新，Zotero的搜索结果自动更新
 		this.sessions[sessionID].itemIDs.forEach(async (id: number) => {
 			if (Object.keys(citationsByItemID).indexOf(String(id)) == -1) {
 				const item = Zotero.Items.get(id)
