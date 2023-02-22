@@ -1,7 +1,7 @@
 import { config } from "../../package.json";
 
 export default class Citation {
-	public sessions: { [sessionID: string]: { search: any, itemIDs: number[]; pending: boolean} } = {}
+	public sessions: { [sessionID: string]: { search: any, itemIDs: number[]; pending: boolean, lastName?: string } } = {}
 	public intervalID!: number
 	private prefix: string;
 	private cache: { [id: string]: CitationData } = {};
@@ -55,6 +55,7 @@ export default class Citation {
 		})
 		const execCommand = Zotero.Integration.execCommand
 		let _sessions = this.sessions
+		const prefix = this.prefix
 		// @ts-ignore
 		const OS = window.OS
 		// @ts-ignore
@@ -63,15 +64,18 @@ export default class Citation {
 			isExecCommand = true
 			await execCommand(...arguments);
 			isExecCommand = false
+			if (docId.endsWith("__doc__")) { return }
 			let id = window.setInterval(async () => {
 				const sessionID = Zotero.Integration?.currentSession?.sessionID
 				if (!sessionID || !_sessions[sessionID]) { return }
 				let _session = _sessions[sessionID]
 				window.clearInterval(id)
 				while (!_session.search) {await Zotero.Promise.delay(10)}
-				console.log(_session.search.name, sessionID, docId)
-				if (_session.search.name.endsWith(sessionID) && !docId.endsWith("__doc__")) {
-					_session.search.name = _session.search.name.replace(sessionID, OS.Path.basename(docId))
+				if (
+					_session.search.name.endsWith(sessionID) ||
+					_session.search.name.endsWith(_session.lastName)
+				) {
+					_session.search.name = _session.lastName = prefix + OS.Path.basename(docId)
 					await _session.search.saveTx({ skipSelect: true })
 					ZoteroPane.collectionsView.refresh()
 				}
