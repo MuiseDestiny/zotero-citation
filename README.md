@@ -8,9 +8,6 @@
 [![License](https://img.shields.io/github/license/MuiseDestiny/zotero-citation)](https://github.com/MuiseDestiny/zotero-citation/blob/master/LICENSE)
 ![Downloads latest release](https://img.shields.io/github/downloads/MuiseDestiny/zotero-citation/latest/total?color=yellow)
 
-## 功能
-
-**注意：**
 
 🎈 插件对 Windows 全功能支持，对 Mac 支持较差。
 
@@ -23,6 +20,10 @@
 ⭐ 这是一个完全基于用户角度需求开发的插件，觉得好用，欢迎Satr。
 
 👋 由于开发者没有 Mac 设备，适配不到的功能见谅；如你是 Mac 开发者，欢迎继续开发插件在 Mac 上未能实现的功能。
+
+---
+
+## 功能
 
 ### 1. 引用归类
 
