@@ -12,9 +12,16 @@
 - 受限于 Zotero 与 Word 的通讯机制，打开一个 Word 文档后需要刷新一次引用或插入一条参考文献后才能工作。
 - Zotero提供的引用：word中光标在[1]（代表文献A）后，插入文献B，代表文献A的[1]会被替换为代表文献B的[1]；使用插件的引用，[1]会变成[1, 2]，这是和Endnote一致的。
 
-### 1. 将 Word 中的引文整理到 Zotero
+### 1. 引用归类
+
+> 将 Word 中的引文整理到 Zotero，并创建引用列
+
+<details>
+<summary>演示</summary>
 
 ![image](https://user-images.githubusercontent.com/51939531/218295007-d603f9b8-3147-4cd6-9e7e-c75351889d84.png)
+
+</details>
 
 当你在 Word 中插入参考文献时，自动将打开的 Word 的所有引用整理到一个文件夹下。
 
@@ -24,13 +31,38 @@
 
 ### 2. 快捷引用条目到 Word
 
-选择条目，按 `Shift + P` 打开命令窗格，选择`引用选中`，即可将选择条目引用到 Word。
+#### 2.1 命令引用
 
-![image](https://user-images.githubusercontent.com/51939531/214848994-efb607ff-6f5a-4639-9db8-42e7bfd602fb.png)
+> 选择条目，按 `Shift + P` 打开命令行工具，选择 `引用` 命令，即可将选择条目引用到 Word。
 
-也可以选择条目后按键盘上的 `'` 键。
+<details>
+<summary>演示</summary>
+
+![image](https://user-images.githubusercontent.com/51939531/220589584-0a0e0fc3-020e-428e-b5a8-93e2898bc67f.png)
+
+</details>
+
+#### 2.2 快捷键引用
+
+> 在 Word 中将光标定位到待插入引用的位置，在 Zotero 中选择条目后按键盘上的 `'` 键。
+
+<details>
+<summary>演示</summary>
 
 ![cite-item-by-quote-key](https://user-images.githubusercontent.com/44738481/215477177-c0a58567-a5e4-410c-a8d4-c1207fab02b0.gif)
+
+</details>
+
+#### 2.3 拖拽引用 
+
+> 在 Zotero 中拖拽（鼠标按下）待引用的条目（可多选）拖拽到 Word 中需要添加引用的位置（松开鼠标）。
+
+<details>
+<summary>演示</summary>
+
+![cite-item-by-drag](https://user-images.githubusercontent.com/51939531/220587000-ce2842cd-8ec5-4f8a-92f3-f78662abb6be.gif)
+
+</details>
 
 ## TODO
 
