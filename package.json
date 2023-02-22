@@ -1,6 +1,6 @@
 {
   "name": "zotero-citation",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "让Zotero与Word联动更方便",
   "config": {
     "addonName": "Zotero Citation",

@@ -67,13 +67,15 @@ export default class Citation {
 				const sessionID = Zotero.Integration?.currentSession?.sessionID
 				if (!sessionID || !_sessions[sessionID]) { return }
 				let _session = _sessions[sessionID]
-				while (!_session.search) { await Zotero.Promise.delay(10) }
+				window.clearInterval(id)
+				while (!_session.search) {await Zotero.Promise.delay(10)}
+				console.log(_session.search.name, sessionID, docId)
 				if (_session.search.name.endsWith(sessionID) && !docId.endsWith("__doc__")) {
 					_session.search.name = _session.search.name.replace(sessionID, OS.Path.basename(docId))
-					await _session.search.saveTx()
+					await _session.search.saveTx({ skipSelect: true })
+					ZoteroPane.collectionsView.refresh()
 				}
-				window.clearInterval(id)
-			})
+			}, 0)
 		}
 	}
 	
@@ -106,6 +108,7 @@ export default class Citation {
 		Object.keys(citationsByItemID).forEach(async (key: string) => {
 			let id = Number(key)
 			const item = Zotero.Items.get(id)
+			if (!citationsByItemID[id] || !item) { return }
 			const data: CitationData = (this.cache[id] ??= {})
 			const info = {
 				sessionID: sessionID,
@@ -130,6 +133,7 @@ export default class Citation {
 		this.sessions[sessionID].itemIDs.forEach(async (id: number) => {
 			if (Object.keys(citationsByItemID).indexOf(String(id)) == -1) {
 				const item = Zotero.Items.get(id)
+				if (!item) { return }
 				delete this.cache[id]
 				let extraSessionID = getExtraField(item, "sessionIDs")
 				extraSessionID = extraSessionID.filter((id: string) => id != sessionID)
