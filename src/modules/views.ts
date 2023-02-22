@@ -1,4 +1,5 @@
 import { initLocale, getString } from "./locale"
+import { config } from "../../package.json";
 
 class Views {
   constructor() {
@@ -32,6 +33,13 @@ class Views {
       },
       {
         renderCellHook(index, data, column) {
+          const div = document.querySelector(`#item-tree-main-default-row-${index}`) as HTMLDivElement
+          if (div && div.getAttribute("_dragend") != "true") {
+            div.addEventListener('dragend', () => {
+              Zotero[config.addonInstance].api.citeFromSelectedItems()
+            }, { passive: true });
+            div.setAttribute("_dragend", "true")
+          }
           const span = ztoolkit.UI.createElement(document, "span") as HTMLSpanElement
           if (data == "") {
             return span
@@ -40,6 +48,17 @@ class Views {
             return span;
           }
         },
+      }
+    )
+  }
+
+  public async dragCite() {
+    ztoolkit.patch(ZoteroPane.itemsView, "onDragStart", config.addonRef,
+      (original)=> async (event: any, row: number) => {
+        await original(event, row)
+        // 此处必须有一个空格，不然插入的光标移动是无效的
+        event.dataTransfer.setData("text/plain", " ")
+        event.dataTransfer.setData("text/html", " ")
       }
     )
   }

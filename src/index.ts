@@ -5,7 +5,7 @@ import { config } from "../package.json";
 
 const basicTool = new BasicTool();
 
-if (!basicTool.getGlobal("Zotero").ZoteroCitation) {
+if (!basicTool.getGlobal("Zotero")[config.addonInstance]) {
   // Set global variables
   _globalThis.Zotero = basicTool.getGlobal("Zotero");
   _globalThis.ZoteroPane = basicTool.getGlobal("ZoteroPane");
@@ -18,7 +18,7 @@ if (!basicTool.getGlobal("Zotero").ZoteroCitation) {
   ztoolkit.basicOptions.log.disableConsole = addon.data.env === "production";
   ztoolkit.UI.basicOptions.ui.enableElementJSONLog =
     addon.data.env === "development";
-  Zotero.ZoteroCitation = addon;
+  Zotero[config.addonInstance] = addon;
   // Trigger addon hook for initialization
   addon.hooks.onStartup();
 }

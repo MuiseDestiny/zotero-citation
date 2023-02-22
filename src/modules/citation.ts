@@ -14,7 +14,7 @@ export default class Citation {
 	/**
 	 * 监听session状态以生成搜索目录
 	 */
-	public listener(t: number) {
+	public async listener(t: number) {
 		let isExecCommand = false
 		this.intervalID = window.setInterval(async () => {
 			if (!Zotero.ZoteroCitation) { return this.clear() }

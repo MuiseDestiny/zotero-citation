@@ -14,11 +14,14 @@ async function onStartup() {
   ztoolkit.UI.basicOptions.ui.enableElementRecord = false
   ztoolkit.UI.basicOptions.ui.enableElementJSONLog = false
 
+  Zotero[config.addonInstance].api.citeFromSelectedItems = citeFromSelectedItems
   const citation = new Citation()
-  citation.listener(1000);
+  await citation.listener(1000);
 
   const views = new Views()
   await views.createCitationColumn();
+  await views.dragCite();
+  
   // 注册命令
   ztoolkit.Prompt.register([
     {
@@ -47,11 +50,10 @@ async function onStartup() {
 
 function onShutdown(): void {
   ztoolkit.unregisterAll();
-  console.log("Prompt unregisterAll")
   ztoolkit.Prompt.unregisterAll();
   // Remove addon object
   addon.data.alive = false;
-  delete Zotero.ZoteroCitation;
+  delete Zotero[config.addonInstance];
 }
 
 

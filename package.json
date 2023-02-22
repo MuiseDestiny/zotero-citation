@@ -6,6 +6,7 @@
     "addonName": "Zotero Citation",
     "addonID": "zoterocitation@polygon.org",
     "addonRef": "zoterocitation",
+    "addonInstance": "ZoteroCitation",
     "releasepage": "https://github.com/muisedestiny/zotero-citation/releases/latest/download/zotero-citation.xpi",
     "updaterdf": "https://raw.githubusercontent.com/muisedestiny/zotero-citation/bootstrap/update.json"
   },
