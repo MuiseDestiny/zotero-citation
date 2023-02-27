@@ -77,7 +77,6 @@ export default class Citation {
 				) {
 					_session.search.name = _session.lastName = prefix + OS.Path.basename(docId)
 					await _session.search.saveTx({ skipSelect: true })
-					ZoteroPane.collectionsView.refresh()
 				}
 			}, 0)
 		}
@@ -107,6 +106,16 @@ export default class Citation {
 			}
 			return data
 		} 
+		let setExtraField = async (item: Zotero.Item, key: string, value: string) => {
+			let rawString = item.getField("extra") as string;
+			rawString = rawString.replace(new RegExp(`${key}:.*\n?`, "g"), "")
+			if (!rawString.endsWith("\n")) {
+				rawString += "\n"
+			}
+			rawString += `${key}: ${value}`
+			item.setField("extra", rawString)
+			await item.saveTx({skipSelect: true})
+		}
 		const searchKey = this.sessions[sessionID].search.key
 		let isUpdate = false
 		Object.keys(citationsByItemID).forEach(async (key: string) => {
@@ -129,10 +138,12 @@ export default class Citation {
 			extraSessionIDs = extraSessionIDs.filter((id: string) => Object.keys(this.sessions).indexOf(id) != -1)
 			const _extraSessionIDs: string = JSON.stringify(extraSessionIDs)
 			if (_extraSessionIDs != ztoolkit.ExtraField.getExtraField(item, "sessionIDs")) {
-				await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", _extraSessionIDs)
+				await setExtraField(item, "sessionIDs", _extraSessionIDs)
 			}
 		})
-		if (isUpdate) { ztoolkit.ItemTree.refresh() }
+		if (isUpdate) {
+			ztoolkit.ItemTree.refresh()
+		}
 		// 这里不需要手动更新，Zotero的搜索结果自动更新
 		this.sessions[sessionID].itemIDs.forEach(async (id: number) => {
 			if (Object.keys(citationsByItemID).indexOf(String(id)) == -1) {
@@ -141,7 +152,7 @@ export default class Citation {
 				delete this.cache[id]
 				let extraSessionID = getExtraField(item, "sessionIDs")
 				extraSessionID = extraSessionID.filter((id: string) => id != sessionID)
-				await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", JSON.stringify(extraSessionID))
+				await setExtraField(item, "sessionIDs", JSON.stringify(extraSessionID))
 			}
 		})
 	}
@@ -152,7 +163,7 @@ export default class Citation {
 		await s.search();
 		s.name = `${this.prefix}${sessionID}`
 		s = s.clone(1)
-		await s.saveTx({ skipSelect: true})
+		await s.saveTx({ skipSelect: true })
 		this.sessions[sessionID].search = s
 	}
 

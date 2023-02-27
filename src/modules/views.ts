@@ -35,7 +35,15 @@ class Views {
         renderCellHook(index, data, column) {
           const div = document.querySelector(`#item-tree-main-default-row-${index}`) as HTMLDivElement
           if (div && div.getAttribute("_dragend") != "true") {
-            div.addEventListener('dragend', () => {
+            div.addEventListener('dragend', (event) => {
+              // 只有把条目拖离Zotero界面，才会触发
+              const docRect = document.documentElement.getBoundingClientRect()
+              const winRect = { left: window.screenX, top: window.screenY, width: docRect.width, height: docRect.height}
+              const left = event.screenX, top = event.screenY
+              if (
+                left > winRect.left && left < winRect.left + winRect.width &&
+                top > winRect.top && left < winRect.top + winRect.height
+              ) { return }
               Zotero[config.addonInstance].api.citeFromSelectedItems()
             }, { passive: true });
             div.setAttribute("_dragend", "true")

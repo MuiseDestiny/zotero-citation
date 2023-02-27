@@ -50,7 +50,10 @@ export const citeFromSelectedItems = async () => {
 		);
 		console.log(io)
 		ZoteroPane.getSelectedItems().map(i => {
-			io.citation.citationItems.push({ id: i.id })
+			const id = i.id
+			if (!io.citation.citationItems.find((i: { id: number }) => i.id == id)) {
+				io.citation.citationItems.push({ id })
+			}
 		})
 
 		if (!io.citation.citationItems.length) {
