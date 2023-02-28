@@ -8,7 +8,8 @@
 [![License](https://img.shields.io/github/license/MuiseDestiny/zotero-citation)](https://github.com/MuiseDestiny/zotero-citation/blob/master/LICENSE)
 ![Downloads latest release](https://img.shields.io/github/downloads/MuiseDestiny/zotero-citation/latest/total?color=yellow)
 
-Zotero 里的 Word 插件要和 Word 中的加载项版本保持一致，如果提示整个错误可以卸载 Word 里的加载项重装。
+
+🤝 Zotero 里的 Word 插件要和 Word 中的加载项版本保持一致，如果提示整合错误可以卸载 Word 里的加载项重装。
 
 🎈 插件对 Windows 全功能支持，对 Mac 支持较差。
 
