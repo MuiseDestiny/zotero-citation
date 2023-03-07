@@ -1,6 +1,6 @@
 {
   "name": "zotero-citation",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Make Zotero's citation in Word easier and clearer.",
   "config": {
     "addonName": "Zotero Citation",
@@ -37,6 +37,7 @@
   },
   "homepage": "https://github.com/muisedestiny/zotero-citation#readme",
   "dependencies": {
+    "child_process": "^1.0.2",
     "path": "^0.12.7",
     "zotero-plugin-toolkit": "^2.0.3"
   },

@@ -27,6 +27,6 @@ interface CitationData {
 
 interface SessionData {
   search: undefined | Zotero.Search,
-  itemIDs: number[],
+  idData: { [id: string]: any },
   pending: boolean
 }

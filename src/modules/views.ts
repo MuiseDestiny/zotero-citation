@@ -17,17 +17,20 @@ class Views {
         includeBaseMapped: boolean,
         item: Zotero.Item
       ) => {
-        let currentSession = Zotero.Integration.currentSession
-        if (!currentSession) { return "" }
-        const search = (
-          ZoteroPane.collectionsView.getSelectedSearch() ||
-          Zotero.ZoteroCitation.api.sessions[currentSession.sessionID].search
-        )
-        if (!search) { return "" }
-        const data = Zotero.ZoteroCitation.api.cache[item.id] as CitationData
-        if (data) { 
-          return (data[search.key] && data[search.key]?.plainCitation) || ""
-        } else {
+        try {
+          let currentSession = Zotero.Integration.currentSession
+          if (!currentSession) { return "" }
+          const search = (
+            ZoteroPane.collectionsView.getSelectedSearch() ||
+            Zotero.ZoteroCitation.api.sessions[currentSession.sessionID].search
+          )
+          if (!search) { return "" }
+          const session = Object.values(Zotero.ZoteroCitation.api.sessions)
+            .find((session: any) => session.search.key == search.key) as SessionData
+          if (session) {
+            return session.idData[item.id].plainCitation
+          }
+        } catch {
           return ""
         }
       },

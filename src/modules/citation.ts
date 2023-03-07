@@ -1,14 +1,27 @@
 import { config } from "../../package.json";
 
 export default class Citation {
-	public sessions: { [sessionID: string]: { search: any, itemIDs: number[]; pending: boolean, lastName?: string } } = {}
+	public sessions: { [sessionID: string]: SessionData } = {}
 	public intervalID!: number
 	private prefix: string;
-	private cache: { [id: string]: CitationData } = {};
+	private filterFunctions: Function[] = [];
 	constructor() {
 		this.prefix = Zotero.Prefs.get(`${config.addonRef}.prefix`) as string || "[Citation]"
 		Zotero.ZoteroCitation.api.sessions = this.sessions
-		Zotero.ZoteroCitation.api.cache = this.cache
+		// Zotero.ZoteroCitation.api.cache = this.cache
+		const filterFunctions = this.filterFunctions
+		ztoolkit.patch(
+			Zotero.CollectionTreeRow.prototype, "getItems", config.addonRef,
+			(original) =>
+				async function () {
+					// @ts-ignore
+					let items = await original.call(this);
+					for (let i = 0; i < filterFunctions.length; i++) {
+						items = filterFunctions[i](items)
+					}
+					return items
+				}
+		)
 	}
 
 	/**
@@ -28,20 +41,16 @@ export default class Citation {
 				if (sessionID in _sessions) {
 					_session = _sessions[sessionID]
 				} else {
-					_sessions[sessionID] = _session = { search: undefined, itemIDs: [], pending: true } as SessionData
-					await this.saveSearch(sessionID)
+					_sessions[sessionID] = _session = { search: undefined, idData: {}, pending: true } as SessionData
+					await this.initSearch(sessionID)
 					_session.pending = false
 				}
-				// 其它线程等待search创建
-				while (_session.pending == true && !_session.search) {
-					await Zotero.Promise.delay(10)
-				}
-				// search初始化完毕
+				// 其它线程search正在创建，则退出本次执行
+				if (_session.pending == true && !_session.search) { return }
 				let citationsByItemID = session.citationsByItemID
 				// 分析排序
 				let sortedItemIDs = this.getSortedItemIDs(session.citationsByIndex)
-				this.markItems(sessionID, citationsByItemID, sortedItemIDs)
-				_session.itemIDs = session.getItems().map((item: Zotero.Item)=>item.id)
+				this.updateCitations(sessionID, citationsByItemID, sortedItemIDs)
 			}
 		}, t)
 		window.addEventListener("close", (event) => {
@@ -94,77 +103,43 @@ export default class Citation {
 		return SortedItemIDs
 	}
 
-	public markItems(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[]) {
-		let getExtraField = (item: Zotero.Item, key: string, defaultValue: any = []) => {
-			let data: any
-			try {
-				data = JSON.parse(
-					ztoolkit.ExtraField.getExtraField(item, key) as string
-				) as string[]
-			} catch {
-				data = defaultValue
-			}
-			return data
-		} 
-		let setExtraField = async (item: Zotero.Item, key: string, value: string) => {
-			let rawString = item.getField("extra") as string;
-			rawString = rawString.replace(new RegExp(`${key}:.*\n?`, "g"), "")
-			if (!rawString.endsWith("\n")) {
-				rawString += "\n"
-			}
-			rawString += `${key}: ${value}`
-			item.setField("extra", rawString)
-			await item.saveTx({skipSelect: true})
+	public updateCitations(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[]) {
+		// 数据是否有变动
+		let getPlainCitation = (id: string) => sortedItemIDs.indexOf(Number(id)) + ": " + citationsByItemID[id].map(i => i.properties.plainCitation).join(", ")
+		// 待更新新数据
+		const targetData: any = {}
+		for (let id of Object.keys(citationsByItemID)) {
+			targetData[id] = { plainCitation: getPlainCitation(id) }
 		}
-		const searchKey = this.sessions[sessionID].search.key
-		let isUpdate = false
-		Object.keys(citationsByItemID).forEach(async (key: string) => {
-			let id = Number(key)
-			const item = Zotero.Items.get(id)
-			if (!citationsByItemID[id] || !item) { return }
-			const data: CitationData = (this.cache[id] ??= {})
-			const info = {
-				sessionID: sessionID,
-				plainCitation: sortedItemIDs.indexOf(id) + ": " + citationsByItemID[id].map(i=>i.properties.plainCitation).join(", ")
-			}
-			if (JSON.stringify(data[searchKey]) == JSON.stringify(info)) { return }
-			data[searchKey] = info
-			isUpdate = true
-			let extraSessionIDs = getExtraField(item, "sessionIDs")
-			if (extraSessionIDs.indexOf(sessionID) == -1) {
-				extraSessionIDs.push(sessionID)
-			}
-			// 数据清理
-			extraSessionIDs = extraSessionIDs.filter((id: string) => Object.keys(this.sessions).indexOf(id) != -1)
-			const _extraSessionIDs: string = JSON.stringify(extraSessionIDs)
-			if (_extraSessionIDs != ztoolkit.ExtraField.getExtraField(item, "sessionIDs")) {
-				await setExtraField(item, "sessionIDs", _extraSessionIDs)
-			}
-		})
-		if (isUpdate) {
-			ztoolkit.ItemTree.refresh()
+		// 与旧数据比较
+		if (JSON.stringify(targetData) == JSON.stringify(this.sessions[sessionID].idData)) {
+			return
+		} else {
+			this.sessions[sessionID].idData = targetData
+			ZoteroPane.itemsView.refreshAndMaintainSelection()
 		}
-		// 这里不需要手动更新，Zotero的搜索结果自动更新
-		this.sessions[sessionID].itemIDs.forEach(async (id: number) => {
-			if (Object.keys(citationsByItemID).indexOf(String(id)) == -1) {
-				const item = Zotero.Items.get(id)
-				if (!item) { return }
-				delete this.cache[id]
-				let extraSessionID = getExtraField(item, "sessionIDs")
-				extraSessionID = extraSessionID.filter((id: string) => id != sessionID)
-				await setExtraField(item, "sessionIDs", JSON.stringify(extraSessionID))
-			}
-		})
 	}
 
-	public async saveSearch(sessionID: string) {
-		let s = new Zotero.Search();
-		s.addCondition("extra", "contains", sessionID);
-		await s.search();
-		s.name = `${this.prefix}${sessionID}`
-		s = s.clone(1)
-		await s.saveTx({ skipSelect: true })
-		this.sessions[sessionID].search = s
+	public async initSearch(sessionID: string) {
+		let search = new Zotero.Search();
+		search.addCondition("title", "is", "citation");
+		await search.search();
+		search.name = `${this.prefix}${sessionID}`
+		const session: SessionData =  this.sessions[sessionID]
+		session.search = search = search.clone(1)
+		await search.saveTx({ skipSelect: true })
+		this.filterFunctions.push(
+			(items: Zotero.Item[]) => {
+				// 当前处在伪搜索文件夹中才进行拦截
+				let selectedSearch = ZoteroPane.collectionsView.getSelectedSearch()
+				if (selectedSearch.key == search.key) {
+					const ids = Object.keys(session.idData).map(id => Number(id))
+					return ids.map(id=>Zotero.Items.get(id))
+				} else {
+					return items
+				}
+			}	
+		)
 	}
 
 	/**
