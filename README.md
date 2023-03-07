@@ -9,6 +9,8 @@
 ![Downloads latest release](https://img.shields.io/github/downloads/MuiseDestiny/zotero-citation/latest/total?color=yellow)
 
 
+🤝 Zotero 里的 Word 插件要和 Word 中的加载项版本保持一致，如果提示整合错误可以卸载 Word 里的加载项重装。
+
 🎈 插件对 Windows 全功能支持，对 Mac 支持较差。
 
 🪐 你需要在 Word 里点一次刷新，插件在 Zotero 生成的文件夹才能被重命名为你打开的 Word 的文件名。
