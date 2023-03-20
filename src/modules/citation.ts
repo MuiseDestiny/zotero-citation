@@ -3,12 +3,9 @@ import { config } from "../../package.json";
 export default class Citation {
 	public sessions: { [sessionID: string]: SessionData } = {}
 	public intervalID!: number
-	private prefix: string;
 	private filterFunctions: Function[] = [];
 	constructor() {
-		this.prefix = Zotero.Prefs.get(`${config.addonRef}.prefix`) as string
 		Zotero.ZoteroCitation.api.sessions = this.sessions
-		// Zotero.ZoteroCitation.api.cache = this.cache
 		const filterFunctions = this.filterFunctions
 		try {
 			ztoolkit.patch(
@@ -92,7 +89,6 @@ export default class Citation {
 		})
 		const execCommand = Zotero.Integration.execCommand
 		let _sessions = this.sessions
-		const prefix = this.prefix
 		// @ts-ignore
 		const OS = window.OS
 		// @ts-ignore
@@ -104,15 +100,14 @@ export default class Citation {
 			if (docId.endsWith("__doc__")) { return }
 			let id = window.setInterval(async () => {
 				const sessionID = Zotero.Integration?.currentSession?.sessionID
-				if (!sessionID || !_sessions[sessionID]) { return }
-				let _session = _sessions[sessionID]
+				if (!sessionID) { return }
 				window.clearInterval(id)
-				while (!_session.search) {await Zotero.Promise.delay(10)}
-				if (
-					_session.search.name.endsWith(sessionID) ||
-					_session.search.name.endsWith(_session.lastName)
-				) {
-					_session.search.name = _session.lastName = prefix + OS.Path.basename(docId)
+				let _session
+				while (!((_session ??= _sessions[sessionID]) && _session.search)) { await Zotero.Promise.delay(10) }
+				// 判断是否为插件修改过的名称，如果是则更新
+				// 若为用户更改则不进行更新
+				if ([sessionID, _session.lastName].indexOf(_session.search.name) != -1) {
+					_session.search.name = _session.lastName = OS.Path.basename(docId)
 					await _session.search.saveTx({ skipSelect: true })
 				}
 			}, 0)
@@ -152,7 +147,7 @@ export default class Citation {
 		let search = new Zotero.Search();
 		search.addCondition("title", "contains", "");
 		await search.search();
-		search.name = `${this.prefix}${sessionID}`
+		search.name = sessionID
 		const session: SessionData =  this.sessions[sessionID]
 		session.search = search = search.clone(1)
 		await search.saveTx({ skipSelect: true })

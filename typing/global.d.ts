@@ -26,6 +26,7 @@ interface CitationData {
 }
 
 interface SessionData {
+	lastName: string;
   search: undefined | Zotero.Search,
   idData: { [id: string]: any },
   pending: boolean
