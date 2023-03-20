@@ -1,7 +1,7 @@
 import { config } from "../package.json";
 import { getString, initLocale } from "./modules/locale";
 import Citation from "./modules/citation";
-import { citeFromSelectedItems } from "./modules/cite";
+import { citeItems } from "./modules/cite";
 import Views from "./modules/views";
 
 async function onStartup() {
@@ -14,38 +14,32 @@ async function onStartup() {
   ztoolkit.UI.basicOptions.ui.enableElementRecord = false
   ztoolkit.UI.basicOptions.ui.enableElementJSONLog = false
 
-  Zotero[config.addonInstance].api.citeFromSelectedItems = citeFromSelectedItems
+  Zotero[config.addonInstance].api.citeItems = citeItems
   const citation = new Citation()
   await citation.listener(1000);
 
   const views = new Views()
+  await views.patchIcon();
   await views.createCitationColumn();
   await views.dragCite();
   
-  // 注册命令
-  ztoolkit.Prompt.register([
-    {
-      name: "引用",
-      label: "Citation",
-      when: () => {
-        return (
-          ZoteroPane.getSelectedItems().length > 0 &&
-          Zotero.Integration?.currentSession?.agent
-        )
-      },
-      callback: () => {
-        citeFromSelectedItems()
+  document.addEventListener(
+    "keydown",
+    (event: any) => {
+      if (event.key.toLowerCase() == "'") {
+        if (
+          event.originalTarget.isContentEditable ||
+          "value" in event.originalTarget
+        ) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        citeItems()
       }
-    }
-  ])
-
-  // 注册快捷键
-  
-  ztoolkit.Shortcut.register("event", {
-    id: "citation-cite-key",
-    key: "'",
-    callback: citeFromSelectedItems
-  })
+    },
+    true
+  );
 }
 
 function onShutdown(): void {

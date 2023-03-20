@@ -1,4 +1,4 @@
-export const citeFromSelectedItems = async () => {
+export const citeItems = async () => {
 	const cite = Zotero.Integration.Session.prototype.cite
 	Zotero.Integration.Session.prototype.cite = async function (field: any, addNote = false) {
 		var newField;
@@ -25,7 +25,7 @@ export const citeFromSelectedItems = async () => {
 		if (!this.data.prefs.delayCitationUpdates
 			|| !Object.keys(this.citationsByItemID).length
 			|| this._sessionUpToDate) {
-			fieldIndexPromise = this.getFields().then(async function (fields) {
+			fieldIndexPromise = this.getFields().then(async function (fields: any) {
 				for (var i = 0, n = fields.length; i < n; i++) {
 					if (await fields[i].equals(field._field)) {
 						// This is needed, because LibreOffice integration plugin caches the field code instead of asking
@@ -48,14 +48,22 @@ export const citeFromSelectedItems = async () => {
 			citation, this.style.opt.sort_citations,
 			fieldIndexPromise, citationsByItemIDPromise
 		);
-		console.log(io)
-		ZoteroPane.getSelectedItems().map(i => {
+		let items: Zotero.Item[]
+		if (Zotero_Tabs.selectedIndex == 0) {
+			items = ZoteroPane.getSelectedItems()
+		} else {
+			items = [
+				Zotero.Items.get(
+					Zotero.Reader.getByTabID(Zotero_Tabs.selectedID)!.itemID as number
+				).parentItem as Zotero.Item
+			]
+		}
+		items.map(i => {
 			const id = i.id
 			if (!io.citation.citationItems.find((i: { id: number }) => i.id == id)) {
 				io.citation.citationItems.push({ id })
 			}
 		})
-
 		if (!io.citation.citationItems.length) {
 			// Try to delete new field on cancel
 			if (newField) {
@@ -95,8 +103,6 @@ export const citeFromSelectedItems = async () => {
 		"__doc__",
 		1
 	)
-
-
 	Zotero.Integration.Session.prototype.cite = cite
 }
 

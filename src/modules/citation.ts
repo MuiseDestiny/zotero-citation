@@ -6,22 +6,50 @@ export default class Citation {
 	private prefix: string;
 	private filterFunctions: Function[] = [];
 	constructor() {
-		this.prefix = Zotero.Prefs.get(`${config.addonRef}.prefix`) as string || "[Citation]"
+		this.prefix = Zotero.Prefs.get(`${config.addonRef}.prefix`) as string
 		Zotero.ZoteroCitation.api.sessions = this.sessions
 		// Zotero.ZoteroCitation.api.cache = this.cache
 		const filterFunctions = this.filterFunctions
-		ztoolkit.patch(
-			Zotero.CollectionTreeRow.prototype, "getItems", config.addonRef,
-			(original) =>
-				async function () {
-					// @ts-ignore
-					let items = await original.call(this);
-					for (let i = 0; i < filterFunctions.length; i++) {
-						items = filterFunctions[i](items)
+		try {
+			ztoolkit.patch(
+				Zotero.CollectionTreeRow.prototype, "getItems", config.addonRef,
+				(original) =>
+					async function () {
+						// @ts-ignore
+						let items = await original.call(this);
+						for (let i = 0; i < filterFunctions.length; i++) {
+							items = filterFunctions[i](items)
+						}
+						return items
 					}
-					return items
+			)
+		} catch {}
+	}
+
+	/**
+	 * 删除历史清除失效的文件夹
+	 */
+	public async clearSearch() {
+		let i = 0;
+		while (true) {
+			let row = ZoteroPane.collectionsView.getRow(i) as any
+			if (!row) { break}
+			if (row?.ref?._ObjectType == "Search") {
+				const conditions = row.ref.getConditions()
+				if (Object.values(conditions).length == 1) {
+					const condition = conditions[0]
+					if (condition.condition == "title" && condition.value == "") {
+						const search = row.ref
+						if (Object.values(this.sessions).map((s: SessionData) => s.search?.key).indexOf(search.key) == -1) {
+							await search.eraseTx()
+							console.log("delete", search.name)
+							i -= 1
+						}
+					}
 				}
-		)
+			}
+			i += 1
+		}
 	}
 
 	/**
@@ -122,7 +150,7 @@ export default class Citation {
 
 	public async initSearch(sessionID: string) {
 		let search = new Zotero.Search();
-		search.addCondition("title", "is", "citation");
+		search.addCondition("title", "contains", "");
 		await search.search();
 		search.name = `${this.prefix}${sessionID}`
 		const session: SessionData =  this.sessions[sessionID]
@@ -134,12 +162,15 @@ export default class Citation {
 				let selectedSearch = ZoteroPane.collectionsView.getSelectedSearch()
 				if (selectedSearch.key == search.key) {
 					const ids = Object.keys(session.idData).map(id => Number(id))
-					return ids.map(id=>Zotero.Items.get(id))
+					return items.filter(item=>ids.indexOf(item.id) != -1)
 				} else {
 					return items
 				}
 			}	
 		)
+		window.setTimeout(async () => {
+			await this.clearSearch()
+		})
 	}
 
 	/**
@@ -150,10 +181,6 @@ export default class Citation {
 		Object.values(this.sessions).forEach(async (session: SessionData) => {
 			// @ts-ignore
 			await session.search.eraseTx()
-			session.itemIDs.forEach(async (id: number) => {
-				const item = Zotero.Items.get(id)
-				await ztoolkit.ExtraField.setExtraField(item, "sessionIDs", "")
-			})
 		})
 	}
 }

@@ -47,7 +47,7 @@ class Views {
                 left > winRect.left && left < winRect.left + winRect.width &&
                 top > winRect.top && left < winRect.top + winRect.height
               ) { return }
-              Zotero[config.addonInstance].api.citeFromSelectedItems()
+              Zotero[config.addonInstance].api.citeItems()
             }, { passive: true });
             div.setAttribute("_dragend", "true")
           }
@@ -72,6 +72,29 @@ class Views {
         event.dataTransfer.setData("text/html", " ")
       }
     )
+  }
+
+  public async patchIcon() {
+    try {
+      ztoolkit.patch(
+        ZoteroPane.collectionsView,
+        "renderItem",
+        config.addonRef,
+        (original) =>
+          (index: number, selection: object, oldDiv: HTMLDivElement, columns: any[]) => {
+            const div = original.call(ZoteroPane.collectionsView, index, selection, oldDiv, columns)
+            const row = ZoteroPane.collectionsView.getRow(index) as any
+            if (
+              Object.values(Zotero.ZoteroCitation.api.sessions)
+                .map((s: any) => s.search?.key).indexOf(row?.ref?.key) != -1
+            ) {
+              const iconNode = div.querySelector(".cell-icon")
+              iconNode.style.backgroundImage = `url(chrome://${config.addonRef}/content/icons/word.png)`
+            }
+            return div
+          }
+      )
+    } catch {}
   }
 }
 
