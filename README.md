@@ -78,3 +78,7 @@
 ## 致谢
 
 本插件基于 [模板](https://github.com/MuiseDestiny/zotero-addon-template)。
+
+## 赞助
+
+[这里](https://github.com/MuiseDestiny/zotero-reference#%E8%B5%9E%E5%8A%A9)
