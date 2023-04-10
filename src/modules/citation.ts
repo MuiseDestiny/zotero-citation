@@ -100,13 +100,19 @@ export default class Citation {
 			if (docId.endsWith("__doc__")) { return }
 			let id = window.setInterval(async () => {
 				const sessionID = Zotero.Integration?.currentSession?.sessionID
-				if (!sessionID) { return }
+				if (!sessionID) {
+					console.log("sessionID is null, waiting...")
+					return
+				}
 				window.clearInterval(id)
+				console.log("clear interval")
 				let _session
 				while (!((_session ??= _sessions[sessionID]) && _session.search)) { await Zotero.Promise.delay(10) }
+				console.log(_sessions)
 				// 判断是否为插件修改过的名称，如果是则更新
 				// 若为用户更改则不进行更新
 				if ([sessionID, _session.lastName].indexOf(_session.search.name) != -1) {
+					console.log(`${_session.search.name}->${OS.Path.basename(docId) }`)
 					_session.search.name = _session.lastName = OS.Path.basename(docId)
 					await _session.search.saveTx({ skipSelect: true })
 				}
@@ -165,7 +171,7 @@ export default class Citation {
 		)
 		window.setTimeout(async () => {
 			await this.clearSearch()
-		})
+		}, 233)
 	}
 
 	/**

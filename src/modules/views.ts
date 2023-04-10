@@ -83,6 +83,7 @@ class Views {
         (original) =>
           (index: number, selection: object, oldDiv: HTMLDivElement, columns: any[]) => {
             const div = original.call(ZoteroPane.collectionsView, index, selection, oldDiv, columns)
+
             const row = ZoteroPane.collectionsView.getRow(index) as any
             if (
               Object.values(Zotero.ZoteroCitation.api.sessions)
