@@ -75,7 +75,8 @@
 
 ## 致谢
 
-本插件基于 [模板](https://github.com/MuiseDestiny/zotero-addon-template)。
+- 本插件基于 [模板](https://github.com/MuiseDestiny/zotero-addon-template)。
+- 在此特别感谢 @鑫鑫胖胖 和 @小明同学classic 二位同学主动联系我提供Mac设备远程调试适配 Mac
 
 ## 赞助
 
