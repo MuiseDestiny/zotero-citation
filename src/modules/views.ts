@@ -66,10 +66,11 @@ class Views {
   public async dragCite() {
     ztoolkit.patch(ZoteroPane.itemsView, "onDragStart", config.addonRef,
       (original)=> async (event: any, row: number) => {
-        await original(event, row)
+        // await original(event, row)
         // 此处必须有一个空格，不然插入的光标移动是无效的
         event.dataTransfer.setData("text/plain", " ")
         event.dataTransfer.setData("text/html", " ")
+        event.dataTransfer.setData("zotero/item", "")
       }
     )
   }

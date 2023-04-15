@@ -112,9 +112,13 @@ export default class Citation {
 				// 判断是否为插件修改过的名称，如果是则更新
 				// 若为用户更改则不进行更新
 				if ([sessionID, _session.lastName].indexOf(_session.search.name) != -1) {
-					console.log(`${_session.search.name}->${OS.Path.basename(docId) }`)
-					_session.search.name = _session.lastName = OS.Path.basename(docId)
-					await _session.search.saveTx({ skipSelect: true })
+					const targetName = OS.Path.basename(docId)
+					console.log(`${_session.search.name}->${targetName}`)
+					// 修复Mac储存
+					if (targetName && targetName.trim().length > 0) {
+						_session.search.name = _session.lastName = targetName
+						await _session.search.saveTx({ skipSelect: true })
+					}
 				}
 			}, 0)
 		}
@@ -154,7 +158,7 @@ export default class Citation {
 		search.addCondition("title", "contains", "");
 		await search.search();
 		search.name = sessionID
-		const session: SessionData =  this.sessions[sessionID]
+		const session: SessionData = this.sessions[sessionID]
 		session.search = search = search.clone(1)
 		await search.saveTx({ skipSelect: true })
 		this.filterFunctions.push(

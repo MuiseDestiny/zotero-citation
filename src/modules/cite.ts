@@ -97,12 +97,31 @@ export const citeItems = async () => {
 		}
 		return citations;
 	};
-	await Zotero.Integration.execCommand(
-		Zotero.Integration?.currentSession?.agent || "WinWord",
-		'addEditCitation',
-		"__doc__",
-		1
-	)
+	/**
+	 * MacWord16
+	 * /Applications/Microsoft Word.app/
+	 */
+	// osascript -e 'tell app "Microsoft Word" to name of windows'
+	// tasklist /FI "IMAGENAME eq WINWORD.EXE" /v /fo list
+	/**
+	 * Zotero.Utilities.Internal.exec("C:\\WINDOWS\\system32\\cmd.exe", [
+	 * "tasklist", "/FI", '"IMAGENAME eq WINWORD.EXE"', "/v", "/fo", "list"]);
+	 */
+	if (Zotero.isMac) {
+		await Zotero.Integration.execCommand(
+			Zotero.Integration?.currentSession?.agent || "MacWord16",
+			'addEditCitation',
+			"/Applications/Microsoft Word.app/",
+			1
+		)
+	} else {
+		await Zotero.Integration.execCommand(
+			Zotero.Integration?.currentSession?.agent || "WinWord",
+			'addEditCitation',
+			"__doc__",
+			1
+		)
+	}
 	Zotero.Integration.Session.prototype.cite = cite
 }
 
