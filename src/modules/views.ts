@@ -65,12 +65,14 @@ class Views {
 
   public async dragCite() {
     ztoolkit.patch(ZoteroPane.itemsView, "onDragStart", config.addonRef,
-      (original)=> async (event: any, row: number) => {
-        // await original(event, row)
-        // 此处必须有一个空格，不然插入的光标移动是无效的
-        event.dataTransfer.setData("text/plain", " ")
-        event.dataTransfer.setData("text/html", " ")
-        event.dataTransfer.setData("zotero/item", "")
+      (original) => async (event: any, row: number) => {
+        if (ZoteroPane.itemsView.tree._columns._columns.find((i: any)=>i.dataKey == "citation").hidden) {
+            await original(event, row)
+        } else {
+          event.dataTransfer.setData("text/plain", " ")
+          event.dataTransfer.setData("text/html", " ")
+          event.dataTransfer.setData("zotero/item", "")
+        }
       }
     )
   }
