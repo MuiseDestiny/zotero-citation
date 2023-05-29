@@ -42,7 +42,7 @@
     "zotero-plugin-toolkit": "^2.0.3"
   },
   "devDependencies": {
-    "@types/node": "^18.13.0",
+    "@types/node": "^20.2.5",
     "compressing": "^1.7.0",
     "concurrently": "^8.0.1",
     "cross-env": "^7.0.3",
