@@ -51,7 +51,7 @@ async function waitForZotero() {
                                 resolve();
                             }
                         },
-                        false
+                        false,
                     );
                 },
             };
@@ -72,7 +72,7 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
     }
 
     var aomStartup = Components.classes["@mozilla.org/addons/addon-manager-startup;1"].getService(
-        Components.interfaces.amIAddonManagerStartup
+        Components.interfaces.amIAddonManagerStartup,
     );
     var manifestURI = Services.io.newURI(rootURI + "manifest.json");
     chromeHandle = aomStartup.registerChrome(manifestURI, [
@@ -104,7 +104,7 @@ function shutdown({ id, version, resourceURI, rootURI }, reason) {
     }
     if (typeof Zotero === "undefined") {
         Zotero = Components.classes["@zotero.org/Zotero;1"].getService(
-            Components.interfaces.nsISupports
+            Components.interfaces.nsISupports,
         ).wrappedJSObject;
     }
     Zotero.__addonInstance__.hooks.onShutdown();

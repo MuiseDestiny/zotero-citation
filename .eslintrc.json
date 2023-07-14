@@ -1,0 +1,49 @@
+{
+    "env": {
+        "browser": true,
+        "es2021": true
+    },
+    "root": true,
+    "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"],
+    "overrides": [],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": "latest",
+        "sourceType": "module"
+    },
+    "plugins": ["@typescript-eslint"],
+    "rules": {
+        "sort-imports": [
+            "off",
+            {
+                "ignoreCase": true
+            }
+        ],
+        "@typescript-eslint/ban-ts-comment": [
+            "warn",
+            {
+                "ts-expect-error": "allow-with-description",
+                "ts-ignore": "allow-with-description",
+                "ts-nocheck": "allow-with-description",
+                "ts-check": "allow-with-description"
+            }
+        ],
+        "@typescript-eslint/no-unused-vars": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-non-null-assertion": "off"
+    },
+    "ignorePatterns": [
+        "**/build/**",
+        "**/node_modules/**",
+        "scripts/**",
+        "dist/**",
+        "src/libs/**",
+        "**/**/*.js",
+        "**/abbrevIso*",
+        "**/example*",
+        "**/*.bak",
+        "!.vuepress/**",
+        "**/.vuepress/.cache/**",
+        "**/.vuepress/.temp/**"
+    ]
+}
