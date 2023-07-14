@@ -11,6 +11,7 @@ if (!basicTool.getGlobal("Zotero")[config.addonInstance]) {
     _globalThis.Zotero_Tabs = basicTool.getGlobal("Zotero_Tabs");
     _globalThis.window = basicTool.getGlobal("window");
     _globalThis.document = basicTool.getGlobal("document");
+    _globalThis.console = basicTool.getGlobal("window").console;
     _globalThis.addon = new Addon();
     _globalThis.ztoolkit = addon.data.ztoolkit;
     ztoolkit.basicOptions.log.prefix = `[${config.addonName}]`;
