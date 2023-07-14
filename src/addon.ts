@@ -1,4 +1,4 @@
-import ZoteroToolkit from "zotero-plugin-toolkit"
+import ZoteroToolkit from "zotero-plugin-toolkit";
 import hooks from "./hooks";
 
 class Addon {
@@ -9,7 +9,7 @@ class Addon {
     // ztoolkit: MyToolkit;
     ztoolkit: ZoteroToolkit;
     locale?: {
-      stringBundle: any;
+      current: any;
     };
     prefs?: {
       window: Window;
