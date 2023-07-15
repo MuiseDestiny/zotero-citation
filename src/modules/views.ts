@@ -68,7 +68,7 @@ class Views {
                     if (data == "") {
                         return span;
                     } else {
-                        span.innerText = data.replace(/\d+:\s*/, "");
+                        span.innerText = data?.replace(/\d+:\s*/, "");
                         return span;
                     }
                 },
