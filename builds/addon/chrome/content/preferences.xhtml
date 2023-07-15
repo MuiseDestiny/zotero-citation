@@ -1,0 +1,31 @@
+<vbox
+  id="zotero-prefpane-zoterocitation"
+  onload="Zotero.AddonTemplate.hooks.onPrefsEvent('load', {window})"
+>
+  <groupbox>
+    <label><html:h2>&zotero.zoterocitation.pref.title;</html:h2></label>
+    <checkbox
+      id="zotero-prefpane-zoterocitation-enable"
+      label="&zotero.zoterocitation.pref.enable.label;"
+      preference="extensions.zotero.zoterocitation.enable"
+    />
+    <hbox>
+      <html:label for="zotero-prefpane-zoterocitation-input"
+        >&zotero.zoterocitation.pref.input.label;</html:label
+      >
+      <html:input
+        type="text"
+        id="zotero-prefpane-zoterocitation-input"
+        preference="extensions.zotero.zoterocitation.input"
+      ></html:input>
+    </hbox>
+    <hbox class="virtualized-table-container" flex="1" height="300px">
+      <html:div id="zoterocitation-table-container" />
+    </hbox>
+  </groupbox>
+</vbox>
+<vbox>
+  <label
+    value="&zotero.zoterocitation.help.version.label;  &zotero.zoterocitation.help.releasetime.label;"
+  ></label>
+</vbox>

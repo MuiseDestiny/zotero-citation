@@ -1,0 +1,7 @@
+<!ENTITY zotero.zoterocitation.pref.title "Addon Template Example">
+<!ENTITY zotero.zoterocitation.itemmenu.test.label "addon template">
+<!ENTITY zotero.zoterocitation.pref.enable.label "Enable">
+<!ENTITY zotero.zoterocitation.pref.input.label "Input">
+
+<!ENTITY zotero.zoterocitation.help.version.label "Zotero Citation VERSION 0.3.1">
+<!ENTITY zotero.zoterocitation.help.releasetime.label "Build 2023-05-04 15:28:07">

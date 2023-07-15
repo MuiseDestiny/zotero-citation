@@ -1,0 +1,7 @@
+<!ENTITY zotero.zoterocitation.pref.title "插件模板设置示例">
+<!ENTITY zotero.zoterocitation.itemmenu.test.label "插件模板">
+<!ENTITY zotero.zoterocitation.pref.enable.label "开启">
+<!ENTITY zotero.zoterocitation.pref.input.label "输入">
+
+<!ENTITY zotero.zoterocitation.help.version.label "Zotero Citation 版本 0.3.1">
+<!ENTITY zotero.zoterocitation.help.releasetime.label "Build 2023-05-04 15:28:07">

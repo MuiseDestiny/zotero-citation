@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "Zotero Citation",
+  "version": "0.3.1",
+  "description": "Make Zotero's citation in Word easier and clearer.",
+  "author": "Polygon",
+  "icons": {
+    "48": "chrome/content/icons/favicon@0.5x.png",
+    "96": "chrome/content/icons/favicon.png"
+  },
+  "applications": {
+    "zotero": {
+      "id": "zoterocitation@polygon.org",
+      "update_url": "https://raw.githubusercontent.com/muisedestiny/zotero-citation/bootstrap/update.json",
+      "strict_min_version": "6.999",
+      "strict_max_version": "7.0.*"
+    }
+  }
+}
