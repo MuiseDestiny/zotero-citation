@@ -8,14 +8,13 @@
 [![License](https://img.shields.io/github/license/MuiseDestiny/zotero-citation)](https://github.com/MuiseDestiny/zotero-citation/blob/master/LICENSE)
 ![Downloads latest release](https://img.shields.io/github/downloads/MuiseDestiny/zotero-citation/latest/total?color=yellow)
 
-
 🤝 Zotero 里的 Word 插件要和 Word 中的加载项版本保持一致，如果提示整合错误可以卸载 Word 里的加载项重装。
 
 🎈 插件对 Windows 全功能支持，Mac不支持临时文件夹自动改名，可能需要手动更改。
 
 🪐 你需要在 Word 里点一次刷新，插件在 Zotero 生成的文件夹才能被重命名为你打开的 Word 的文件名。
 
-⌛ 插件生成的文件夹生命周期为：[在 Word 里插入第一条引用，关闭Zotero]；每次打开 Word 都会重新生成这个文件夹。 
+⌛ 插件生成的文件夹生命周期为：[在 Word 里插入第一条引用，关闭Zotero]；每次打开 Word 都会重新生成这个文件夹。
 
 🎉 使用插件提供的引用，相邻引用自动合并，如在 [1] 后面插入新的文献，会变成 [1, 2]，而非 [1][2] 。
 
@@ -55,7 +54,7 @@
 
 </details>
 
-#### 2.2 拖拽引用 
+#### 2.2 拖拽引用
 
 > 在 Zotero 中拖拽（鼠标按下）待引用的条目（可多选）拖拽到 Word 中需要添加引用的位置（松开鼠标）。
 
@@ -70,13 +69,13 @@
 
 ## TODO
 
-- [x] Word 引文序号如，[1] 在 Zotero 里标注
-- [x] 适配 Mac 用户快捷引用，目前版本 Mac 用户只能使用功能 1
+-   [x] Word 引文序号如，[1] 在 Zotero 里标注
+-   [x] 适配 Mac 用户快捷引用，目前版本 Mac 用户只能使用功能 1
 
 ## 致谢
 
-- 本插件基于 [模板](https://github.com/MuiseDestiny/zotero-addon-template)。
-- 在此特别感谢 `@鑫鑫胖胖` 和 `@小明同学classic` 二位同学主动联系我提供Mac设备远程调试适配 Mac
+-   本插件基于 [模板](https://github.com/MuiseDestiny/zotero-addon-template)。
+-   在此特别感谢 `@鑫鑫胖胖` 和 `@小明同学classic` 二位同学主动联系我提供Mac设备远程调试适配 Mac
 
 ## 赞助
 

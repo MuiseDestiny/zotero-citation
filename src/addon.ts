@@ -1,36 +1,36 @@
-import ZoteroToolkit from "zotero-plugin-toolkit"
+import ZoteroToolkit from "zotero-plugin-toolkit";
 import hooks from "./hooks";
 
 class Addon {
-  public data: {
-    alive: boolean;
-    // Env type, see build.js
-    env: "development" | "production";
-    // ztoolkit: MyToolkit;
-    ztoolkit: ZoteroToolkit;
-    locale?: {
-      stringBundle: any;
+    public data: {
+        alive: boolean;
+        // Env type, see build.js
+        env: "development" | "production";
+        // ztoolkit: MyToolkit;
+        ztoolkit: ZoteroToolkit;
+        locale?: {
+            current: any;
+        };
+        prefs?: {
+            window: Window;
+            rows: Array<{ [dataKey: string]: string }>;
+        };
     };
-    prefs?: {
-      window: Window;
-      rows: Array<{ [dataKey: string]: string }>;
-    };
-  };
-  // Lifecycle hooks
-  public hooks: typeof hooks;
-  // APIs
-  public api: {};
+    // Lifecycle hooks
+    public hooks: typeof hooks;
+    // APIs
+    public api: object;
 
-  constructor() {
-    this.data = {
-      alive: true,
-      env: __env__,
-      // ztoolkit: new MyToolkit(),
-      ztoolkit: new ZoteroToolkit(),
-    };
-    this.hooks = hooks;
-    this.api = {};
-  }
+    constructor() {
+        this.data = {
+            alive: true,
+            env: __env__,
+            // ztoolkit: new MyToolkit(),
+            ztoolkit: new ZoteroToolkit(),
+        };
+        this.hooks = hooks;
+        this.api = {};
+    }
 }
 
 /**
@@ -53,18 +53,18 @@ import { UITool } from "zotero-plugin-toolkit/dist/tools/ui";
 import { PreferencePaneManager } from "zotero-plugin-toolkit/dist/managers/preferencePane";
 
 export class MyToolkit extends BasicTool {
-  UI: UITool;
-  PreferencePane: PreferencePaneManager;
+    UI: UITool;
+    PreferencePane: PreferencePaneManager;
 
-  constructor() {
-    super();
-    this.UI = new UITool(this);
-    this.PreferencePane = new PreferencePaneManager(this);
-  }
+    constructor() {
+        super();
+        this.UI = new UITool(this);
+        this.PreferencePane = new PreferencePaneManager(this);
+    }
 
-  unregisterAll() {
-    unregister(this);
-  }
+    unregisterAll() {
+        unregister(this);
+    }
 }
 
 export default Addon;
