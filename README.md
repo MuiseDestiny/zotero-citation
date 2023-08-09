@@ -1,4 +1,4 @@
-# Zotero Ciation
+# Ciation
 
 ![Reference](addon/chrome/content/icons/favicon.png)
 
