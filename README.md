@@ -76,6 +76,7 @@
 
 -   本插件基于 [模板](https://github.com/MuiseDestiny/zotero-addon-template)。
 -   在此特别感谢 `@鑫鑫胖胖` 和 `@小明同学classic` 二位同学主动联系我提供Mac设备远程调试适配 Mac
+-   插件名称来自 [@Little_Chen](https://space.bilibili.com/351320112?spm_id_from=333.337.0.0) 于 2023/08/09
 
 ## 赞助
 
