@@ -3,8 +3,8 @@
         "zoterocitation@polygon.org": {
             "updates": [
                 {
-                    "version": "0.3.1",
-                    "update_link": "https://github.com/muisedestiny/zotero-citation/releases/latest/download/zotero-citation.xpi",
+                    "version": "0.4.0",
+                    "update_link": "https://github.com/muisedestiny/zotero-citation/releases/latest/download/eaiser-citation.xpi",
                     "applications": {
                         "gecko": {
                             "strict_min_version": "60.0"
@@ -12,8 +12,8 @@
                     }
                 },
                 {
-                    "version": "0.3.1",
-                    "update_link": "https://github.com/muisedestiny/zotero-citation/releases/latest/download/zotero-citation.xpi",
+                    "version": "0.4.0",
+                    "update_link": "https://github.com/muisedestiny/zotero-citation/releases/latest/download/eaiser-citation.xpi",
                     "applications": {
                         "zotero": {
                             "strict_min_version": "6.999"
