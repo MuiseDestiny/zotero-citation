@@ -1,4 +1,4 @@
-# Ciation
+# Eaiser Ciation
 
 ![Reference](addon/chrome/content/icons/favicon.png)
 
