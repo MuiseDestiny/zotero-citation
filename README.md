@@ -16,7 +16,7 @@
 
 ⌛ 插件生成的文件夹生命周期为：[在 Word 里插入第一条引用，关闭Zotero]；每次打开 Word 都会重新生成这个文件夹。(The plugin generates a folder with the following lifecycle: [Insert first quote in Word, close Zotero]; this folder is regenerated every time Word is opened.)
 
-🎉 使用插件提供的引用，相邻引用自动合并，如在 [1] 后面插入新的文献，会变成 [1, 2]，而非 [1][2] 。(Neighbouring references are automatically merged with the references available from the plugin, e.g. inserting a new document after [1] will result in [1, 2] instead of [1][2].)
+🎉 使用插件提供的引用，相邻引用自动合并，如在 [1] 后面插入新的文献，会变成 [1, 2]，而非 [1][2] 。(Neighbouring references are automatically merged with the references available from the plugin, e.g. inserting a new citation after [1] will result in [1, 2] instead of [1][2].)
 
 ⭐ 这是一个完全基于用户角度开发的插件，觉得好用，欢迎Star。(This is a plugin developed entirely based on the user's perspective, feel free to star it if you found it useful.)
 
@@ -41,7 +41,7 @@
 
 这个文件夹是临时的，关闭 Zotero 后会自动删除（如果自动删除失败，下次打开时可手动删除）。(The folder is temporary and will be deleted automatically when you close Zotero. If it fails to be deleted automatically, you can delete it manually the next time you open it.)
 
-### 2. 快捷引用条目到 Word (Quick insert reference entries in Word)
+### 2. 快捷引用条目到 Word (Quickly insert reference entries into a Word document)
 
 #### 2.1 快捷键引用 (Shortcut citation)
 
@@ -56,12 +56,12 @@
 
 #### 2.2 拖拽引用 (Drag-and-drop citation)
 
-> 在 Zotero 中拖拽（鼠标按下）待引用的条目（可多选）拖拽到 Word 中需要添加引用的位置（松开鼠标）。(Drag the reference selection to be cited in Zotero (multiple selections possible) to the location in Word document where the citation needs to be placed by click, hold, move and finally release the selection.)
+> 在 Zotero 中拖拽（鼠标按下）待引用的条目（可多选）拖拽到 Word 中需要添加引用的位置（松开鼠标）。(Drag and drop the reference selection to be cited in Zotero (multiple selections possible) to the location in the Word document where the citation needs to be placed by click, hold, move and finally release the selection.)
 
-**需要开启引用列才可以使用，反之若想禁用拖拽引用，关闭引用列即可** (**The reference column requires to be turned on for this to work, otherwise if you want to disable drag-and-drop references, just turn off the reference column**.)
+**需要开启引用列才可以使用，反之若想禁用拖拽引用，关闭引用列即可** (**The citation column requires to be turned on in the plugin setting for this to work, otherwise if you want to disable drag-and-drop references, just turn off the reference column**.)
 
 <details>
-<summary>演示 (Demonstration)</</summary>
+<summary>演示 (Demonstration)</summary>
 
 ![cite-item-by-drag](https://user-images.githubusercontent.com/51939531/220587000-ce2842cd-8ec5-4f8a-92f3-f78662abb6be.gif)
 
