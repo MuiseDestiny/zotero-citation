@@ -57,7 +57,7 @@
         "cross-env": "^7.0.3",
         "esbuild": "^0.17.19",
         "minimist": "^1.2.8",
-        "release-it": "^15.11.0",
+        "release-it": "^17.0.1",
         "replace-in-file": "^6.3.5",
         "typescript": "^5.1.6",
         "zotero-types": "^1.0.16"
