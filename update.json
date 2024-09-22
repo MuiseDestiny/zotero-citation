@@ -3,7 +3,7 @@
         "zoterocitation@polygon.org": {
             "updates": [
                 {
-                    "version": "0.4.5",
+                    "version": "0.4.6",
                     "update_link": "https://github.com/muisedestiny/eaiser-citation/releases/latest/download/zotero-citation.xpi",
                     "applications": {
                         "gecko": {
@@ -12,7 +12,7 @@
                     }
                 },
                 {
-                    "version": "0.4.5",
+                    "version": "0.4.6",
                     "update_link": "https://github.com/muisedestiny/eaiser-citation/releases/latest/download/zotero-citation.xpi",
                     "applications": {
                         "zotero": {

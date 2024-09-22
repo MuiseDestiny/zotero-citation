@@ -96,7 +96,7 @@ export default class Citation {
                 const citationsByItemID = session.citationsByItemID;
                 // 分析排序
                 const sortedItemIDs = this.getSortedItemIDs(session.citationsByIndex);
-                this.updateCitations(sessionID, citationsByItemID, sortedItemIDs);
+                this.updateCitations(sessionID, citationsByItemID, sortedItemIDs, session.styleClass);
             }
         }, t);
         window.addEventListener("close", (event) => {
@@ -166,12 +166,18 @@ export default class Citation {
         return SortedItemIDs;
     }
 
-    public updateCitations(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[]) {
+    public updateCitations(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[], styleClass: "in-text" | "note") {
         // 数据是否有变动
         const getPlainCitation = (id: string) =>
             sortedItemIDs.indexOf(Number(id)) +
             ": " +
-            citationsByItemID[id].map((i) => i.properties.plainCitation).join(", ");
+            citationsByItemID[id].map((i) =>
+                // 如果是note类型的style是脚注形式，则直接返回数字
+                styleClass == "note" ?
+                String(sortedItemIDs.indexOf(Number(id)) + 1)
+                :
+                i.properties.plainCitation
+            ).join(", ");
         // 待更新新数据
         const targetData: any = {};
         for (const id of Object.keys(citationsByItemID)) {
@@ -182,7 +188,7 @@ export default class Citation {
             return;
         } else {
             this.sessions[sessionID].idData = targetData;
-            ZoteroPane.itemsView.tree._columns._updateVirtualizedTable();
+            ZoteroPane.itemsView.refreshAndMaintainSelection();
         }
     }
 

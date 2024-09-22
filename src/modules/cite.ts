@@ -130,7 +130,7 @@ export const citeItems = async () => {
         );
     }
     Zotero.Integration.Session.prototype.cite = cite;
-    window.setTimeout(async () => {
-        await ZoteroPane.itemsView.refreshAndMaintainSelection()
-    }, 1e3) 
+    // window.setTimeout(async () => {
+    //     await ZoteroPane.itemsView.refreshAndMaintainSelection()
+    // }, 1e3) 
 };
