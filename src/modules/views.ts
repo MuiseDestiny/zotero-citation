@@ -8,10 +8,13 @@ class Views {
 
   public async createCitationColumn() {
     const key = "citation";
-    await ztoolkit.ItemTree.register(
-      key,
-      getString("column-citation"),
-      (field: string, unformatted: boolean, includeBaseMapped: boolean, item: Zotero.Item) => {
+    await Zotero.ItemTreeManager.registerColumns({
+      dataKey: key,
+      label: getString(`column-${key}`),
+      zoteroPersist: ['width', 'hidden', 'sortDirection'],
+      dataProvider: (
+        item: Zotero.Item, dataKey: string
+      ) => {
         try {
           const currentSession = Zotero.Integration.currentSession;
           if (!currentSession) {
@@ -29,51 +32,57 @@ class Views {
           if (session) {
             return session.idData[item.id].plainCitation;
           }
+          return ""
         } catch {
           return "";
         }
       },
-      {
-        renderCellHook(index, data, column) {
-          const div = document.querySelector(`#item-tree-main-default-row-${index}`) as HTMLDivElement;
-          if (div && div.getAttribute("_dragend") != "true") {
-            div.addEventListener(
-              "dragend",
-              (event) => {
-                // 只有把条目拖离Zotero界面，才会触发
-                const docRect = document.documentElement.getBoundingClientRect();
-                const winRect = {
-                  left: window.screenX,
-                  top: window.screenY,
-                  width: docRect.width,
-                  height: docRect.height,
-                };
-                const left = event.screenX,
-                  top = event.screenY;
-                if (
-                  left > winRect.left &&
-                  left < winRect.left + winRect.width &&
-                  top > winRect.top &&
-                  left < winRect.top + winRect.height
-                ) {
-                  return;
-                }
-                Zotero[config.addonInstance].api.citeItems();
-              },
-              { passive: true },
-            );
-            div.setAttribute("_dragend", "true");
-          }
-          const span = ztoolkit.UI.createElement(document, "span") as HTMLSpanElement;
-          if (data == "") {
-            return span;
-          } else {
-            span.innerText = data?.replace(/\d+:\s*/, "");
-            return span;
-          }
-        },
+      renderCell: (index, data, column) => {
+        const span = ztoolkit.UI.createElement(document, "span") as HTMLSpanElement
+        span.style.pointerEvents = "auto"
+        if (!column) { return span }
+        span.className = `cell ${column.className}`;
+        const div = document.querySelector(`#item-tree-main-default-row-${index}`) as HTMLDivElement;
+        if (div && div.getAttribute("_dragend") != "true") {
+          div.addEventListener(
+            "dragend",
+            (event) => {
+              const items = ZoteroPane.getSelectedItems();
+              if (items.find(i=>!i.isTopLevelItem())) { return }
+              // 只有把条目拖离Zotero界面，才会触发
+              const docRect = document.documentElement.getBoundingClientRect();
+              const winRect = {
+                left: window.screenX,
+                top: window.screenY,
+                width: docRect.width,
+                height: docRect.height,
+              };
+              const left = event.screenX;
+              const top = event.screenY;
+              if (
+                left > winRect.left &&
+                left < (winRect.left + winRect.width) &&
+                top > winRect.top &&
+                top < (winRect.top + winRect.height)
+              ) {
+                return;
+              }
+              ztoolkit.log("_dragend", event)
+              addon.api.citeItems();
+            },
+            { passive: true },
+          );
+          div.setAttribute("_dragend", "true");
+        }
+        if (data == "") {
+          return span;
+        } else {
+          span.innerText = data?.replace(/\d+:\s*/, "");
+          return span;
+        }
       },
-    );
+      pluginID: config.addonID,
+    });
   }
 
   public async dragCite() {
@@ -82,13 +91,10 @@ class Views {
       "onDragStart",
       config.addonRef,
       (original) => async (event: any, row: number) => {
-        if (ZoteroPane.itemsView.tree._columns._columns.find((i: any) => i.dataKey == "citation").hidden) {
-          await original(event, row);
-        } else {
-          event.dataTransfer.setData("text/plain", " ");
-          event.dataTransfer.setData("text/html", " ");
-          event.dataTransfer.setData("zotero/item", "");
-        }
+        await original(event, row);
+        event.dataTransfer.setData("text/plain", " ");
+        event.dataTransfer.setData("text/html", " ");
+        ztoolkit.log("getDragTarget", Zotero.DragDrop.getDragTarget(event))
       },
     );
   }
@@ -101,15 +107,16 @@ class Views {
         config.addonRef,
         (original) => (index: number, selection: object, oldDiv: HTMLDivElement, columns: any[]) => {
           const div = original.call(ZoteroPane.collectionsView, index, selection, oldDiv, columns);
-
           const row = ZoteroPane.collectionsView.getRow(index) as any;
           if (
             Object.values(Zotero.ZoteroCitation.api.sessions)
               .map((s: any) => s.search?.key)
               .indexOf(row?.ref?.key) != -1
           ) {
-            const iconNode = div.querySelector(".cell-icon");
+            const iconNode = div.querySelector(".cell-icon") as HTMLDivElement;
             iconNode.style.backgroundImage = `url(chrome://${config.addonRef}/content/icons/word.png)`;
+            iconNode.classList.remove("icon-search")
+            iconNode.classList.add("icon-publications")
           }
           return div;
         },

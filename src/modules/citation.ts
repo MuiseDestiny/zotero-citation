@@ -113,8 +113,6 @@ export default class Citation {
         const execCommand = Zotero.Integration.execCommand;
         const _sessions = this.sessions;
         // @ts-ignore ignore
-        const OS = window.OS;
-        // @ts-ignore ignore
         Zotero.Integration.execCommand = async function (agent, command, docId) {
             // eslint-disable-next-line prefer-rest-params
             console.log(...arguments);
@@ -141,7 +139,10 @@ export default class Citation {
                 // 判断是否为插件修改过的名称，如果是则更新
                 // 若为用户更改则不进行更新
                 if ([sessionID, _session.lastName].indexOf(_session.search.name) != -1) {
-                    const targetName = OS.Path.basename(docId);
+                    let targetName = docId
+                    try {
+                        targetName = PathUtils.split(docId).slice(-1)[0];
+                    } catch { }
                     console.log(`${_session.search.name}->${targetName}`);
                     // 修复Mac储存
                     if (targetName && targetName.trim().length > 0) {
