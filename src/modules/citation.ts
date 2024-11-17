@@ -96,7 +96,7 @@ export default class Citation {
                 const citationsByItemID = session.citationsByItemID;
                 // 分析排序
                 const sortedItemIDs = this.getSortedItemIDs(session.citationsByIndex);
-                this.updateCitations(sessionID, citationsByItemID, sortedItemIDs);
+                this.updateCitations(sessionID, citationsByItemID, sortedItemIDs, session.styleClass);
             }
         }, t);
         window.addEventListener("close", (event) => {
@@ -112,8 +112,6 @@ export default class Citation {
         });
         const execCommand = Zotero.Integration.execCommand;
         const _sessions = this.sessions;
-        // @ts-ignore ignore
-        const OS = window.OS;
         // @ts-ignore ignore
         Zotero.Integration.execCommand = async function (agent, command, docId) {
             // eslint-disable-next-line prefer-rest-params
@@ -141,7 +139,10 @@ export default class Citation {
                 // 判断是否为插件修改过的名称，如果是则更新
                 // 若为用户更改则不进行更新
                 if ([sessionID, _session.lastName].indexOf(_session.search.name) != -1) {
-                    const targetName = OS.Path.basename(docId);
+                    let targetName = docId
+                    try {
+                        targetName = PathUtils.split(docId).slice(-1)[0];
+                    } catch { }
                     console.log(`${_session.search.name}->${targetName}`);
                     // 修复Mac储存
                     if (targetName && targetName.trim().length > 0) {
@@ -165,12 +166,18 @@ export default class Citation {
         return SortedItemIDs;
     }
 
-    public updateCitations(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[]) {
+    public updateCitations(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[], styleClass: "in-text" | "note") {
         // 数据是否有变动
         const getPlainCitation = (id: string) =>
             sortedItemIDs.indexOf(Number(id)) +
             ": " +
-            citationsByItemID[id].map((i) => i.properties.plainCitation).join(", ");
+            citationsByItemID[id].map((i) =>
+                // 如果是note类型的style是脚注形式，则直接返回数字
+                styleClass == "note" ?
+                String(sortedItemIDs.indexOf(Number(id)) + 1)
+                :
+                i.properties.plainCitation
+            ).join(", ");
         // 待更新新数据
         const targetData: any = {};
         for (const id of Object.keys(citationsByItemID)) {
@@ -181,7 +188,7 @@ export default class Citation {
             return;
         } else {
             this.sessions[sessionID].idData = targetData;
-            ZoteroPane.itemsView.tree._columns._updateVirtualizedTable();
+            ZoteroPane.itemsView.refreshAndMaintainSelection();
         }
     }
 

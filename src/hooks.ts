@@ -7,10 +7,7 @@ import Views from "./modules/views";
 async function onStartup() {
     await Promise.all([Zotero.initializationPromise, Zotero.unlockPromise, Zotero.uiReadyPromise]);
     initLocale();
-    ztoolkit.UI.basicOptions.ui.enableElementRecord = false;
-    ztoolkit.UI.basicOptions.ui.enableElementJSONLog = false;
 
-    Zotero[config.addonInstance].api.citeItems = citeItems;
     const citation = new Citation();
     await citation.listener(1000);
 
