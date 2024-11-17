@@ -5,7 +5,7 @@ import { existsSync, lstatSync, writeFileSync, readFileSync, mkdirSync, readdirS
 import { env, exit } from "process";
 import replaceInFile from "replace-in-file";
 const { replaceInFileSync } = replaceInFile;
-import details from "../package.json" assert { type: "json" };
+import details from "../package.json" with { type: "json" };
 
 const { name, author, description, homepage, version, config } = details;
 

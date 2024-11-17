@@ -1,6 +1,6 @@
 import process from "process";
 import { execSync } from "child_process";
-import cmd from "./zotero-cmd.json" assert { type: "json" };
+import cmd from "./zotero-cmd.json" with { type: "json" };
 const { killZoteroWindows, killZoteroUnix } = cmd;
 
 try {

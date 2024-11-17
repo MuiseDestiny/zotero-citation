@@ -119,7 +119,7 @@ export const citeItems = async () => {
             Zotero.Integration?.currentSession?.agent || "MacWord16",
             "addEditCitation",
             "/Applications/Microsoft Word.app/",
-            1,
+            2,
         );
     } else {
         await Zotero.Integration.execCommand(

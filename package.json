@@ -1,6 +1,6 @@
 {
     "name": "zotero-citation",
-    "version": "0.4.6",
+    "version": "0.4.7",
     "description": "Easier Citation for Zotero",
     "config": {
         "addonName": "Easier Citation",

@@ -90,11 +90,8 @@ class Views {
       ZoteroPane.itemsView,
       "onDragStart",
       config.addonRef,
-      (original) => async (event: any, row: number) => {
-        await original(event, row);
-        event.dataTransfer.setData("text/plain", " ");
-        event.dataTransfer.setData("text/html", " ");
-        ztoolkit.log("getDragTarget", Zotero.DragDrop.getDragTarget(event))
+      (original: any) => async (event: any, row: number) => {
+        event.dataTransfer.setData("text/plain", "");
       },
     );
   }

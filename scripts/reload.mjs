@@ -1,7 +1,7 @@
 import { exit } from "process";
 import { execSync } from "child_process";
-import details from "../package.json" assert { type: "json" };
-import cmd from "./zotero-cmd.json" assert { type: "json" };
+import details from "../package.json" with { type: "json" };
+import cmd from "./zotero-cmd.json" with { type: "json" };
 
 const { addonID, addonName } = details.config;
 const { version } = details;
