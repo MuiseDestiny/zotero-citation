@@ -42,7 +42,7 @@
     "dependencies": {
         "child_process": "^1.0.2",
         "path": "^0.12.7",
-        "zotero-plugin-toolkit": "^2.2.6"
+        "zotero-plugin-toolkit": "^3.0.3"
     },
     "devDependencies": {
         "@types/node": "^18.16.19",
