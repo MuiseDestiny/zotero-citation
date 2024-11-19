@@ -43,6 +43,7 @@ class Views {
         if (!column) { return span }
         span.className = `cell ${column.className}`;
         const div = document.querySelector(`#item-tree-main-default-row-${index}`) as HTMLDivElement;
+        
         if (div && div.getAttribute("_dragend") != "true") {
           div.addEventListener(
             "dragend",
@@ -68,7 +69,10 @@ class Views {
                 return;
               }
               ztoolkit.log("_dragend", event)
-              addon.api.citeItems();
+              if (!this.getColumnInfo("citation")?.hidden) {
+
+                addon.api.citeItems();
+              }
             },
             { passive: true },
           );
@@ -91,7 +95,11 @@ class Views {
       "onDragStart",
       config.addonRef,
       (original: any) => async (event: any, row: number) => {
-        event.dataTransfer.setData("text/plain", "");
+        if (!this.getColumnInfo("citation")?.hidden) {
+          event.dataTransfer.setData("text/plain", "");
+        } else {
+          original.bind(this)(event, row)
+        }
       },
     );
   }
@@ -122,6 +130,16 @@ class Views {
       /* empty */
     }
   }
+
+  private getColumnInfo(dataKey: string) {
+    try {
+      // @ts-ignore
+      const columnInfo = ZoteroPane.itemsView._columns.find((i: any) => i.dataKey.endsWith(dataKey))
+      return columnInfo
+    } catch { return {} }
+  }
 }
 
 export default Views;
+
+
