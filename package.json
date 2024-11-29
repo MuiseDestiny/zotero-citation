@@ -58,7 +58,7 @@
         "minimist": "^1.2.8",
         "prettier": "3.0.0",
         "release-it": "^15.11.0",
-        "replace-in-file": "^6.3.5",
+        "replace-in-file": "^7.0.2",
         "typescript": "^5.1.6",
         "zotero-types": "^1.0.16"
     }
