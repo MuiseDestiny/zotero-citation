@@ -113,12 +113,12 @@ export default class Citation {
         const execCommand = Zotero.Integration.execCommand;
         const _sessions = this.sessions;
         // @ts-ignore ignore
-        Zotero.Integration.execCommand = async function (agent, command, docId) {
+        Zotero.Integration.execCommand = (async function (agent, command, docId) {
             // eslint-disable-next-line prefer-rest-params
             console.log(...arguments);
             isExecCommand = true;
             // eslint-disable-next-line prefer-rest-params
-            await execCommand(...arguments);
+            await execCommand.bind(Zotero.Integration)(...arguments);
             isExecCommand = false;
             if (docId.endsWith("__doc__")) {
                 return;
@@ -151,7 +151,7 @@ export default class Citation {
                     }
                 }
             }, 0);
-        };
+        });
     }
 
     public getSortedItemIDs(citationsByIndex: any) {
