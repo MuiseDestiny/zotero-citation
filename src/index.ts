@@ -15,7 +15,7 @@ if (!basicTool.getGlobal("Zotero")[config.addonInstance]) {
     _globalThis.addon = new Addon();
     _globalThis.ztoolkit = addon.data.ztoolkit;
     ztoolkit.basicOptions.log.prefix = `[${config.addonName}]`;
-    ztoolkit.basicOptions.log.disableConsole = false;
+    ztoolkit.basicOptions.log.disableConsole = true;
     ztoolkit.UI.basicOptions.ui.enableElementJSONLog = false;
     Zotero[config.addonInstance] = addon;
     // Trigger addon hook for initialization

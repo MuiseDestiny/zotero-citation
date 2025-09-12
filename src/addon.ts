@@ -16,6 +16,7 @@ class Addon {
             window: Window;
             rows: Array<{ [dataKey: string]: string }>;
         };
+        docId: "__doc__"
     };
     // Lifecycle hooks
     public hooks: typeof hooks;

@@ -125,7 +125,7 @@ export const citeItems = async () => {
         await Zotero.Integration.execCommand(
             Zotero.Integration?.currentSession?.agent || "WinWord",
             "addEditCitation",
-            "__doc__",
+            addon.data.docId,
             1,
         );
     }

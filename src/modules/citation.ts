@@ -120,9 +120,9 @@ export default class Citation {
             // eslint-disable-next-line prefer-rest-params
             await execCommand.bind(Zotero.Integration)(...arguments);
             isExecCommand = false;
-            if (docId.endsWith("__doc__")) {
-                return;
-            }
+            // if (docId.endsWith("__doc__")) {
+            //     return;
+            // }
             const id = window.setInterval(async () => {
                 const sessionID = Zotero.Integration?.currentSession?.sessionID;
                 if (!sessionID) {
@@ -139,10 +139,12 @@ export default class Citation {
                 // 判断是否为插件修改过的名称，如果是则更新
                 // 若为用户更改则不进行更新
                 if ([sessionID, _session.lastName].indexOf(_session.search.name) != -1) {
+                    addon.data.docId = docId
                     let targetName = docId
                     try {
                         targetName = PathUtils.split(docId).slice(-1)[0];
                     } catch { }
+ 
                     console.log(`${_session.search.name}->${targetName}`);
                     // 修复Mac储存
                     if (targetName && targetName.trim().length > 0) {
