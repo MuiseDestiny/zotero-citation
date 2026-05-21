@@ -42,7 +42,7 @@ class Views {
         span.style.pointerEvents = "auto"
         if (!column) { return span }
         span.className = `cell ${column.className}`;
-        const div = document.querySelector(`#item-tree-main-default-row-${index}`) as HTMLDivElement;
+        const div = document.querySelector(`#item-tree-main-row-${index}`) as HTMLDivElement;
         
         if (div && div.getAttribute("_dragend") != "true") {
           div.addEventListener(
@@ -93,11 +93,11 @@ class Views {
       ZoteroPane.itemsView,
       "onDragStart",
       config.addonRef,
-      (original: any) => async (event: any, row: number) => {
+      (original: any) => async (event: any, index: number) => {
         if (!this.getColumnInfo("citation")?.hidden) {
           event.dataTransfer.setData("text/plain", "");
         } else {
-          original.bind(this)(event, row)
+          original.bind(this)(event, index)
         }
       },
     );

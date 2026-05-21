@@ -20,6 +20,7 @@ async function onStartup() {
         "keydown",
         (event: any) => {
             if (event.key.toLowerCase() == "'") {
+                ztoolkit.log(event)
                 if (event.originalTarget.isContentEditable || "value" in event.originalTarget) {
                     return;
                 }
