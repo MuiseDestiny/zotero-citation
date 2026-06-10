@@ -38,11 +38,14 @@ class Views {
         }
       },
       renderCell: (index, data, column) => {
+        ztoolkit.log(index, data, column)
         const span = ztoolkit.UI.createElement(document, "span") as HTMLSpanElement
         span.style.pointerEvents = "auto"
         if (!column) { return span }
         span.className = `cell ${column.className}`;
-        const div = document.querySelector(`#item-tree-main-row-${index}`) as HTMLDivElement;
+        const div = (document.querySelector(`#item-tree-main-row-${index}`) ||
+          document.querySelector(`#item-tree-main-default-row-${index}`)
+      ) as HTMLDivElement;
         
         if (div && div.getAttribute("_dragend") != "true") {
           div.addEventListener(
@@ -97,7 +100,7 @@ class Views {
         if (!this.getColumnInfo("citation")?.hidden) {
           event.dataTransfer.setData("text/plain", "");
         } else {
-          original.bind(this)(event, index)
+          original.bind(ZoteroPane.itemsView)(event, index)
         }
       },
     );
