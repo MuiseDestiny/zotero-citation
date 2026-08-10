@@ -26,7 +26,7 @@
         "watch": "chokidar \"src/**\" \"addon/**\" -c \"npm run reload\"",
         "release": "release-it",
         "lint": "prettier --write . && eslint . --ext .ts --fix",
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "test": "node scripts/test.mjs",
         "update-deps": "npm update --save"
     },
     "repository": {

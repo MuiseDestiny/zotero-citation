@@ -4,11 +4,24 @@ import Citation from "./modules/citation";
 import { citeItems } from "./modules/cite";
 import Views from "./modules/views";
 
+const keydownHandler = (event: any) => {
+    if (event.key.toLowerCase() == "'") {
+        ztoolkit.log(event);
+        if (event.originalTarget.isContentEditable || "value" in event.originalTarget) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        citeItems();
+    }
+};
+
 async function onStartup() {
     await Promise.all([Zotero.initializationPromise, Zotero.unlockPromise, Zotero.uiReadyPromise]);
     initLocale();
 
     const citation = new Citation();
+    addon.data.citation = citation;
     await citation.listener(1000);
 
     const views = new Views();
@@ -16,29 +29,21 @@ async function onStartup() {
     await views.createCitationColumn();
     await views.dragCite();
 
-    document.addEventListener(
-        "keydown",
-        (event: any) => {
-            if (event.key.toLowerCase() == "'") {
-                ztoolkit.log(event)
-                if (event.originalTarget.isContentEditable || "value" in event.originalTarget) {
-                    return;
-                }
-                event.preventDefault();
-                event.stopPropagation();
-                citeItems();
-            }
-        },
-        true,
-    );
+    document.addEventListener("keydown", keydownHandler, true);
 }
 
-function onShutdown(): void {
-    ztoolkit.unregisterAll();
-    ztoolkit.Prompt.unregisterAll();
-    // Remove addon object
-    addon.data.alive = false;
-    delete Zotero[config.addonInstance];
+async function onShutdown(): Promise<void> {
+    try {
+        document.removeEventListener("keydown", keydownHandler, true);
+        await addon.data.citation?.clear();
+    } finally {
+        addon.data.citation = undefined;
+        ztoolkit.unregisterAll();
+        ztoolkit.Prompt.unregisterAll();
+        // Remove addon object
+        addon.data.alive = false;
+        delete Zotero[config.addonInstance];
+    }
 }
 
 export default {

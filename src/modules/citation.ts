@@ -1,230 +1,353 @@
-import { config } from "../../package.json";
+import { diffItemIDs, isLegacyCitationSearch } from "./citationUtils";
+
+const TEMP_COLLECTION_RELATION = "dc:relation";
+const TEMP_COLLECTION_MARKER = "https://github.com/MuiseDestiny/zotero-citation#temporary-collection";
+const RENAME_TIMEOUT = 5000;
 
 export default class Citation {
     public sessions: { [sessionID: string]: SessionData } = {};
-    public intervalID!: number;
-    // eslint-disable-next-line @typescript-eslint/ban-types
-    private filterFunctions: Function[] = [];
+
+    private intervalID?: number;
+    private pollPromise?: Promise<void>;
+    private clearPromise?: Promise<void>;
+    private closing = false;
+    private execCommandDepth = 0;
+    private originalExecCommand?: typeof Zotero.Integration.execCommand;
+    private patchedExecCommand?: typeof Zotero.Integration.execCommand;
+    private pendingTasks = new Set<Promise<void>>();
+
     constructor() {
         Zotero.ZoteroCitation.api.sessions = this.sessions;
-        const filterFunctions = this.filterFunctions;
-        try {
-            ztoolkit.patch(
-                Zotero.CollectionTreeRow.prototype,
-                "getItems",
-                config.addonRef,
-                (original) =>
-                    async function () {
-                        // @ts-ignore ignore
-                        let items = await original.call(this);
-                        for (let i = 0; i < filterFunctions.length; i++) {
-                            items = filterFunctions[i](items);
-                        }
-                        return items;
-                    },
-            );
-        } catch {
-            /* empty */
-        }
     }
 
     /**
-     * 删除历史清除失效的文件夹
+     * Remove temporary collections left by an interrupted shutdown and migrate
+     * the all-items saved searches created by older versions of the plugin.
      */
-    public async clearSearch() {
-        let i = 0;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-            const row = ZoteroPane.collectionsView.getRow(i) as any;
-            if (!row) {
-                break;
-            }
-            if (row?.ref?._ObjectType == "Search") {
-                const conditions = row.ref.getConditions();
-                if (Object.values(conditions).length == 1) {
-                    const condition = conditions[0];
-                    if (condition.condition == "title" && condition.value == "") {
-                        const search = row.ref;
-                        if (
-                            Object.values(this.sessions)
-                                .map((s: SessionData) => s.search?.key)
-                                .indexOf(search.key) == -1
-                        ) {
-                            await search.eraseTx();
-                            console.log("delete", search.name);
-                            i -= 1;
-                        }
-                    }
+    private async clearStaleArtifacts() {
+        const libraryID = Zotero.Libraries.userLibraryID;
+        const collections = (Zotero.Collections as any).getByLibrary(libraryID, true, true) as Zotero.Collection[];
+
+        for (const collection of collections) {
+            try {
+                await collection.loadDataType("relations");
+                if (collection.getRelationsByPredicate(TEMP_COLLECTION_RELATION).includes(TEMP_COLLECTION_MARKER)) {
+                    await collection.eraseTx();
                 }
+            } catch (error) {
+                this.logError("Failed to remove a stale citation collection", error);
             }
-            i += 1;
+        }
+
+        const searches = (Zotero.Searches as any).getByLibrary(libraryID) as Zotero.Search[];
+        for (const search of searches) {
+            try {
+                if (isLegacyCitationSearch(search.getConditions() as any)) {
+                    await search.eraseTx();
+                }
+            } catch (error) {
+                this.logError("Failed to remove a legacy citation search", error);
+            }
         }
     }
 
     /**
-     * 监听session状态以生成搜索目录
+     * Watch Word integration sessions and keep their temporary collections in sync.
      */
     public async listener(t: number) {
-        let isExecCommand = false;
-        this.intervalID = window.setInterval(async () => {
-            if (!Zotero.ZoteroCitation) {
-                return this.clear();
+        await this.clearStaleArtifacts();
+        this.patchExecCommand();
+        window.addEventListener("close", this.handleWindowClose);
+        this.intervalID = window.setInterval(() => this.schedulePoll(), t);
+        this.schedulePoll();
+    }
+
+    private schedulePoll() {
+        if (this.closing || this.pollPromise) {
+            return;
+        }
+
+        const task = this.pollSessions()
+            .catch((error) => this.logError("Failed to refresh citation collections", error))
+            .finally(() => {
+                if (this.pollPromise === task) {
+                    this.pollPromise = undefined;
+                }
+            });
+        this.pollPromise = task;
+    }
+
+    private async pollSessions() {
+        if (this.closing || this.execCommandDepth > 0) {
+            return;
+        }
+
+        const integrationSessions = Zotero.Integration.sessions;
+        const wordSessionIDs = Object.keys(integrationSessions).filter((sessionID) =>
+            String(integrationSessions[sessionID].agent).includes("Word"),
+        );
+        const activeSessionIDs = new Set(wordSessionIDs);
+
+        for (const sessionID of Object.keys(this.sessions)) {
+            if (!activeSessionIDs.has(sessionID)) {
+                await this.clearSession(sessionID);
             }
-            if (!Zotero.Integration.currentSession || isExecCommand) {
+        }
+
+        if (this.closing) {
+            return;
+        }
+
+        for (const sessionID of wordSessionIDs) {
+            if (this.closing || this.execCommandDepth > 0) {
                 return;
             }
-            const sessions = Zotero.Integration.sessions;
-            const _sessions = this.sessions;
-            for (const sessionID in sessions) {
-                const session = sessions[sessionID];
-                let _session: SessionData;
-                if (!(session.agent as string).includes("Word")) {
+
+            const integrationSession = integrationSessions[sessionID];
+            let session = this.sessions[sessionID];
+            if (!session) {
+                session = {
+                    collection: undefined,
+                    idData: {},
+                    lastName: sessionID,
+                    pending: true,
+                };
+                this.sessions[sessionID] = session;
+
+                try {
+                    await this.initCollection(sessionID, session);
+                } catch (error) {
+                    delete this.sessions[sessionID];
+                    this.logError(`Failed to create a citation collection for session ${sessionID}`, error);
                     continue;
+                } finally {
+                    session.pending = false;
                 }
-                // 初始化对象的session
-                if (sessionID in _sessions) {
-                    _session = _sessions[sessionID];
-                } else {
-                    _sessions[sessionID] = _session = { search: undefined, idData: {}, pending: true } as SessionData;
-                    await this.initSearch(sessionID);
-                    _session.pending = false;
-                }
-                // 其它线程search正在创建，则退出本次执行
-                if (_session.pending == true && !_session.search) {
-                    return;
-                }
-                const citationsByItemID = session.citationsByItemID;
-                // 分析排序
-                const sortedItemIDs = this.getSortedItemIDs(session.citationsByIndex);
-                this.updateCitations(sessionID, citationsByItemID, sortedItemIDs, session.styleClass);
             }
-        }, t);
-        window.addEventListener("close", (event) => {
-            event.preventDefault();
+
+            if (!session.collection) {
+                continue;
+            }
+
+            const citationsByItemID = integrationSession.citationsByItemID || {};
+            const sortedItemIDs = this.getSortedItemIDs(integrationSession.citationsByIndex || {});
+            await this.updateCitations(sessionID, citationsByItemID, sortedItemIDs, integrationSession.styleClass);
+        }
+    }
+
+    private async initCollection(sessionID: string, session: SessionData) {
+        const collection = new Zotero.Collection();
+        (collection as any).libraryID = Zotero.Libraries.userLibraryID;
+        collection.name = sessionID;
+        collection.addRelation(TEMP_COLLECTION_RELATION, TEMP_COLLECTION_MARKER);
+        await collection.saveTx({ skipSelect: true });
+
+        if (this.closing || this.sessions[sessionID] !== session) {
+            await collection.eraseTx();
+            return;
+        }
+
+        session.collection = collection;
+    }
+
+    private patchExecCommand() {
+        if (this.patchedExecCommand) {
+            return;
+        }
+
+        this.originalExecCommand = Zotero.Integration.execCommand;
+        this.patchedExecCommand = (async (...args: any[]) => {
+            this.execCommandDepth += 1;
+            let result;
             try {
-                this.clear();
-            } catch {
-                /* empty */
+                result = await (this.originalExecCommand as any).apply(Zotero.Integration, args);
+            } finally {
+                this.execCommandDepth = Math.max(0, this.execCommandDepth - 1);
             }
-            window.setTimeout(() => {
-                window.close();
-            });
-        });
-        const execCommand = Zotero.Integration.execCommand;
-        const _sessions = this.sessions;
-        // @ts-ignore ignore
-        Zotero.Integration.execCommand = (async function (agent, command, docId) {
-            // eslint-disable-next-line prefer-rest-params
-            console.log(...arguments);
-            isExecCommand = true;
-            // eslint-disable-next-line prefer-rest-params
-            await execCommand.bind(Zotero.Integration)(...arguments);
-            isExecCommand = false;
-            // if (docId.endsWith("__doc__")) {
-            //     return;
-            // }
-            const id = window.setInterval(async () => {
-                const sessionID = Zotero.Integration?.currentSession?.sessionID;
-                if (!sessionID) {
-                    console.log("sessionID is null, waiting...");
-                    return;
-                }
-                window.clearInterval(id);
-                console.log("clear interval");
-                let _session;
-                while (!((_session ??= _sessions[sessionID]) && _session.search)) {
-                    await Zotero.Promise.delay(10);
-                }
-                console.log(_sessions);
-                // 判断是否为插件修改过的名称，如果是则更新
-                // 若为用户更改则不进行更新
-                if ([sessionID, _session.lastName].indexOf(_session.search.name) != -1) {
-                    addon.data.docId = docId
-                    let targetName = docId
-                    try {
-                        targetName = PathUtils.split(docId).slice(-1)[0];
-                    } catch { }
- 
-                    console.log(`${_session.search.name}->${targetName}`);
-                    // 修复Mac储存
-                    if (targetName && targetName.trim().length > 0) {
-                        _session.search.name = _session.lastName = targetName;
-                        await _session.search.saveTx({ skipSelect: true });
+
+            const docId = args[2];
+            if (typeof docId === "string" && !this.closing) {
+                this.trackTask(this.renameCurrentCollection(docId));
+            }
+            return result;
+        }) as typeof Zotero.Integration.execCommand;
+        Zotero.Integration.execCommand = this.patchedExecCommand;
+    }
+
+    private restoreExecCommand() {
+        if (
+            this.originalExecCommand &&
+            this.patchedExecCommand &&
+            Zotero.Integration.execCommand === this.patchedExecCommand
+        ) {
+            Zotero.Integration.execCommand = this.originalExecCommand;
+        }
+        this.originalExecCommand = undefined;
+        this.patchedExecCommand = undefined;
+    }
+
+    private trackTask(task: Promise<void>) {
+        this.pendingTasks.add(task);
+        void task
+            .catch((error) => this.logError("Failed to rename a citation collection", error))
+            .finally(() => this.pendingTasks.delete(task));
+    }
+
+    private async renameCurrentCollection(docId: string) {
+        const deadline = Date.now() + RENAME_TIMEOUT;
+        while (!this.closing && Date.now() < deadline) {
+            const sessionID = Zotero.Integration.currentSession?.sessionID;
+            const session = sessionID ? this.sessions[sessionID] : undefined;
+            if (sessionID && session?.collection) {
+                if ([sessionID, session.lastName].includes(session.collection.name)) {
+                    const targetName = this.getDocumentName(docId);
+                    if (targetName) {
+                        addon.data.docId = docId;
+                        session.collection.name = targetName;
+                        await session.collection.saveTx({ skipSelect: true });
+                        session.lastName = targetName;
                     }
                 }
-            }, 0);
-        });
+                return;
+            }
+            await Zotero.Promise.delay(50);
+        }
+    }
+
+    private getDocumentName(docId: string) {
+        let targetName = docId;
+        try {
+            targetName = PathUtils.split(docId).slice(-1)[0];
+        } catch {
+            // Keep the original document identifier when it is not a filesystem path.
+        }
+        return targetName?.trim() || "";
     }
 
     public getSortedItemIDs(citationsByIndex: any) {
-        const SortedItemIDs: number[] = [];
+        const sortedItemIDs: number[] = [];
         for (const i in citationsByIndex) {
             citationsByIndex[i].citationItems.forEach((item: { id: number }) => {
-                if (SortedItemIDs.indexOf(item.id) == -1) {
-                    SortedItemIDs.push(item.id);
+                if (!sortedItemIDs.includes(item.id)) {
+                    sortedItemIDs.push(item.id);
                 }
             });
         }
-        return SortedItemIDs;
+        return sortedItemIDs;
     }
 
-    public updateCitations(sessionID: string, citationsByItemID: { [id: string]: any[] }, sortedItemIDs: number[], styleClass: "in-text" | "note") {
-        // 数据是否有变动
+    public async updateCitations(
+        sessionID: string,
+        citationsByItemID: { [id: string]: any[] },
+        sortedItemIDs: number[],
+        styleClass: "in-text" | "note",
+    ) {
         const getPlainCitation = (id: string) =>
             sortedItemIDs.indexOf(Number(id)) +
             ": " +
-            citationsByItemID[id].map((i) =>
-                // 如果是note类型的style是脚注形式，则直接返回数字
-                styleClass == "note" ?
-                String(sortedItemIDs.indexOf(Number(id)) + 1)
-                :
-                i.properties.plainCitation
-            ).join(", ");
-        // 待更新新数据
-        const targetData: any = {};
+            citationsByItemID[id]
+                .map((citation) =>
+                    styleClass === "note"
+                        ? String(sortedItemIDs.indexOf(Number(id)) + 1)
+                        : citation.properties.plainCitation,
+                )
+                .join(", ");
+        const targetData: { [id: string]: { plainCitation: string } } = {};
         for (const id of Object.keys(citationsByItemID)) {
             targetData[id] = { plainCitation: getPlainCitation(id) };
         }
-        // 与旧数据比较
-        if (JSON.stringify(targetData) == JSON.stringify(this.sessions[sessionID].idData)) {
+
+        const session = this.sessions[sessionID];
+        if (!session || JSON.stringify(targetData) === JSON.stringify(session.idData)) {
             return;
-        } else {
-            this.sessions[sessionID].idData = targetData;
-            ZoteroPane.itemsView.refreshAndMaintainSelection();
+        }
+
+        const targetIDs = Object.keys(targetData)
+            .map(Number)
+            .filter((id) => {
+                const item = Zotero.Items.get(id);
+                return item && item.libraryID === Zotero.Libraries.userLibraryID;
+            });
+        await this.syncCollectionItems(session, targetIDs);
+        session.idData = targetData;
+        (ZoteroPane.itemsView as any).refreshAndMaintainSelection();
+    }
+
+    private async syncCollectionItems(session: SessionData, targetIDs: number[]) {
+        const collection = session.collection;
+        if (!collection) {
+            return;
+        }
+
+        const currentIDs = collection.getChildItems(true) as number[];
+        const changes = diffItemIDs(currentIDs, targetIDs);
+        if (!changes.add.length && !changes.remove.length) {
+            return;
+        }
+
+        await Zotero.DB.executeTransaction(async () => {
+            await collection.removeItems(changes.remove);
+            await collection.addItems(changes.add);
+        });
+    }
+
+    private async clearSession(sessionID: string) {
+        const session = this.sessions[sessionID];
+        if (!session) {
+            return;
+        }
+        delete this.sessions[sessionID];
+
+        if (session.collection?.id) {
+            await session.collection.eraseTx();
         }
     }
 
-    public async initSearch(sessionID: string) {
-        let search = new Zotero.Search();
-        search.addCondition("title", "contains", "");
-        await search.search();
-        search.name = sessionID;
-        const session: SessionData = this.sessions[sessionID];
-        session.search = search = search.clone(1);
-        await search.saveTx({ skipSelect: true });
-        this.filterFunctions.push((items: Zotero.Item[]) => {
-            // 当前处在伪搜索文件夹中才进行拦截
-            const selectedSearch = ZoteroPane.collectionsView.getSelectedSearch();
-            if (selectedSearch.key == search.key) {
-                const ids = Object.keys(session.idData).map((id) => Number(id));
-                return items.filter((item) => ids.indexOf(item.id) != -1);
-            } else {
-                return items;
-            }
-        });
-        window.setTimeout(async () => {
-            await this.clearSearch();
-        }, 233);
-    }
+    private handleWindowClose = (event: Event) => {
+        if (this.closing) {
+            return;
+        }
+        event.preventDefault();
+        void this.clear()
+            .catch((error) => this.logError("Failed to clear citation collections during shutdown", error))
+            .finally(() => window.close());
+    };
 
     /**
-     * 退出时调用
+     * Stop background work, restore patched APIs and wait for all collection
+     * deletions to commit before the plugin or Zotero window is unloaded.
      */
-    public clear() {
-        window.clearInterval(this.intervalID);
-        Object.values(this.sessions).forEach(async (session: SessionData) => {
-            // @ts-ignore ignore
-            await session.search.eraseTx();
-        });
+    public clear(): Promise<void> {
+        if (!this.clearPromise) {
+            this.clearPromise = this.performClear();
+        }
+        return this.clearPromise;
+    }
+
+    private async performClear() {
+        this.closing = true;
+        if (this.intervalID !== undefined) {
+            window.clearInterval(this.intervalID);
+            this.intervalID = undefined;
+        }
+        window.removeEventListener("close", this.handleWindowClose);
+        this.restoreExecCommand();
+
+        const activeTasks = [this.pollPromise, ...this.pendingTasks].filter(Boolean) as Promise<void>[];
+        await Promise.allSettled(activeTasks);
+
+        const results = await Promise.allSettled(
+            Object.keys(this.sessions).map((sessionID) => this.clearSession(sessionID)),
+        );
+        for (const result of results) {
+            if (result.status === "rejected") {
+                this.logError("Failed to remove a citation collection", result.reason);
+            }
+        }
+    }
+
+    private logError(context: string, error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        Zotero.logError(new Error(`${context}: ${message}`));
     }
 }

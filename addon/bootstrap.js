@@ -95,8 +95,9 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
     Services.scriptloader.loadSubScript(`${rootURI}/chrome/content/scripts/index.js`, ctx);
 }
 
-function shutdown({ id, version, resourceURI, rootURI }, reason) {
+async function shutdown({ id, version, resourceURI, rootURI }, reason) {
     if (reason === APP_SHUTDOWN) {
+        await Zotero.__addonInstance__?.hooks.onShutdown();
         return;
     }
     if (reason == ADDON_DISABLE) {
@@ -107,7 +108,7 @@ function shutdown({ id, version, resourceURI, rootURI }, reason) {
             Components.interfaces.nsISupports,
         ).wrappedJSObject;
     }
-    Zotero.__addonInstance__.hooks.onShutdown();
+    await Zotero.__addonInstance__.hooks.onShutdown();
 
     Cc["@mozilla.org/intl/stringbundle;1"].getService(Components.interfaces.nsIStringBundleService).flushBundles();
 
