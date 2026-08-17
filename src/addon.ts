@@ -1,6 +1,7 @@
-import {ZoteroToolkit} from "zotero-plugin-toolkit";
+import { ZoteroToolkit } from "zotero-plugin-toolkit";
 import hooks from "./hooks";
 import { citeItems } from "./modules/cite";
+import type Citation from "./modules/citation";
 
 class Addon {
     public data: {
@@ -16,7 +17,8 @@ class Addon {
             window: Window;
             rows: Array<{ [dataKey: string]: string }>;
         };
-        docId: "__doc__"
+        citation?: Citation;
+        docId: string;
     };
     // Lifecycle hooks
     public hooks: typeof hooks;
@@ -31,6 +33,7 @@ class Addon {
             env: __env__,
             // ztoolkit: new MyToolkit(),
             ztoolkit: new ZoteroToolkit(),
+            docId: "__doc__",
         };
         this.hooks = hooks;
         this.api = { citeItems: citeItems };

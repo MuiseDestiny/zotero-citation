@@ -17,22 +17,22 @@ class Views {
       ) => {
         try {
           const currentSession = Zotero.Integration.currentSession;
-          if (!currentSession) {
-            return "";
-          }
-          const search =
-            ZoteroPane.collectionsView.getSelectedSearch() ||
-            Zotero.ZoteroCitation.api.sessions[currentSession.sessionID].search;
-          if (!search) {
-            return "";
-          }
-          const session = Object.values(Zotero.ZoteroCitation.api.sessions).find(
-            (session: any) => session.search.key == search.key,
-          ) as SessionData;
-          if (session) {
-            return session.idData[item.id].plainCitation;
-          }
-          return ""
+          const collectionsView = ZoteroPane.collectionsView as any;
+          const selectedCollection =
+            typeof collectionsView.getSelectedCollections === "function"
+              ? (collectionsView.getSelectedCollections() || [])[0]
+              : collectionsView.getSelectedCollection?.();
+          const selectedSession = selectedCollection
+            ? Object.values(Zotero.ZoteroCitation.api.sessions).find(
+                (candidate: any) => candidate.collection?.key == selectedCollection.key,
+              )
+            : undefined;
+          const session = (selectedCollection
+            ? selectedSession
+            : currentSession
+              ? Zotero.ZoteroCitation.api.sessions[currentSession.sessionID]
+              : undefined) as SessionData | undefined;
+          return session?.idData[item.id]?.plainCitation || "";
         } catch {
           return "";
         }
@@ -92,7 +92,7 @@ class Views {
   }
 
   public async dragCite() {
-    ztoolkit.patch(
+    (ztoolkit.patch as any)(
       ZoteroPane.itemsView,
       "onDragStart",
       config.addonRef,
@@ -108,21 +108,21 @@ class Views {
 
   public async patchIcon() {
     try {
-      ztoolkit.patch(
+      (ztoolkit.patch as any)(
         ZoteroPane.collectionsView,
         "renderItem",
         config.addonRef,
-        (original) => (index: number, selection: object, oldDiv: HTMLDivElement, columns: any[]) => {
-          const div = original.call(ZoteroPane.collectionsView, index, selection, oldDiv, columns) as HTMLDivElement;
-          const row = ZoteroPane.collectionsView!.getRow(index) as any;
+        (original: any) => (index: number, selection: object, oldDiv: HTMLDivElement, columns: any[]) => {
+          const div = (original as any).call(ZoteroPane.collectionsView, index, selection, oldDiv, columns) as HTMLDivElement;
+          const row = (ZoteroPane.collectionsView as any).getRow(index) as any;
           if (
             Object.values(Zotero.ZoteroCitation.api.sessions)
-              .map((s: any) => s.search?.key)
+              .map((s: any) => s.collection?.key)
               .indexOf(row?.ref?.key) != -1
           ) {
             const iconNode = div.querySelector(".cell-icon") as HTMLDivElement;
             iconNode.style.backgroundImage = `url(chrome://${config.addonRef}/content/icons/word.png)`;
-            iconNode.classList.remove("icon-search")
+            iconNode.classList.remove("icon-collection", "icon-search")
             iconNode.classList.add("icon-publications")
           }
           return div;
@@ -135,7 +135,7 @@ class Views {
 
   private getColumnInfo(dataKey: string) {
     try {
-      // @ts-ignore
+      // @ts-ignore Zotero's internal column registry is not exposed in zotero-types.
       const columnInfo = ZoteroPane.itemsView._columns.find((i: any) => i.dataKey.endsWith(dataKey))
       return columnInfo
     } catch { return {} }
@@ -143,5 +143,3 @@ class Views {
 }
 
 export default Views;
-
-

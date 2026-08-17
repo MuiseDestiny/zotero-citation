@@ -19,5 +19,5 @@ if (!basicTool.getGlobal("Zotero")[config.addonInstance]) {
     ztoolkit.UI.basicOptions.ui.enableElementJSONLog = false;
     Zotero[config.addonInstance] = addon;
     // Trigger addon hook for initialization
-    addon.hooks.onStartup();
+    addon.hooks.onStartup().catch((error) => Zotero.logError(error));
 }
