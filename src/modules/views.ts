@@ -1,4 +1,5 @@
 import { initLocale, getString } from "./locale";
+import { selectCitationSession } from "./citationUtils";
 import { config } from "../../package.json";
 
 class Views {
@@ -22,16 +23,14 @@ class Views {
             typeof collectionsView.getSelectedCollections === "function"
               ? (collectionsView.getSelectedCollections() || [])[0]
               : collectionsView.getSelectedCollection?.();
-          const selectedSession = selectedCollection
-            ? Object.values(Zotero.ZoteroCitation.api.sessions).find(
-                (candidate: any) => candidate.collection?.key == selectedCollection.key,
-              )
+          const activeSession = currentSession
+            ? Zotero.ZoteroCitation.api.sessions[currentSession.sessionID]
             : undefined;
-          const session = (selectedCollection
-            ? selectedSession
-            : currentSession
-              ? Zotero.ZoteroCitation.api.sessions[currentSession.sessionID]
-              : undefined) as SessionData | undefined;
+          const session = selectCitationSession(
+            selectedCollection,
+            Object.values(Zotero.ZoteroCitation.api.sessions),
+            activeSession,
+          ) as SessionData | undefined;
           return session?.idData[item.id]?.plainCitation || "";
         } catch {
           return "";
