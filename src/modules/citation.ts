@@ -1,7 +1,10 @@
 import { diffItemIDs, isLegacyCitationSearch } from "./citationUtils";
 
+// Retained only to clean up collections created by releases that used a
+// synced relation marker. New collections are tracked in a local preference.
 const TEMP_COLLECTION_RELATION = "dc:relation";
 const TEMP_COLLECTION_MARKER = "https://github.com/MuiseDestiny/zotero-citation#temporary-collection";
+const TEMP_COLLECTION_KEYS_PREF = "zotero-citation.temporaryCollectionKeys";
 const RENAME_TIMEOUT = 5000;
 
 export default class Citation {
@@ -15,6 +18,7 @@ export default class Citation {
     private originalExecCommand?: typeof Zotero.Integration.execCommand;
     private patchedExecCommand?: typeof Zotero.Integration.execCommand;
     private pendingTasks = new Set<Promise<void>>();
+    private temporaryCollectionKeys = new Set<string>();
 
     constructor() {
         Zotero.ZoteroCitation.api.sessions = this.sessions;
@@ -27,11 +31,36 @@ export default class Citation {
     private async clearStaleArtifacts() {
         const libraryID = Zotero.Libraries.userLibraryID;
         const collections = (Zotero.Collections as any).getByLibrary(libraryID, true, true) as Zotero.Collection[];
+        const collectionsByKey = new Map(collections.map((collection) => [collection.key, collection]));
+        const removedCollectionKeys = new Set<string>();
+
+        this.temporaryCollectionKeys = this.loadTemporaryCollectionKeys();
+        const remainingCollectionKeys = new Set<string>();
+        for (const key of this.temporaryCollectionKeys) {
+            const collection = collectionsByKey.get(key);
+            if (!collection) {
+                continue;
+            }
+            try {
+                await collection.eraseTx();
+                removedCollectionKeys.add(key);
+            } catch (error) {
+                remainingCollectionKeys.add(key);
+                this.logError("Failed to remove a stale citation collection", error);
+            }
+        }
+        this.temporaryCollectionKeys = remainingCollectionKeys;
+        this.saveTemporaryCollectionKeys();
 
         for (const collection of collections) {
+            if (removedCollectionKeys.has(collection.key)) {
+                continue;
+            }
             try {
                 await collection.loadDataType("relations");
-                if (collection.getRelationsByPredicate(TEMP_COLLECTION_RELATION).includes(TEMP_COLLECTION_MARKER)) {
+                const isTemporaryCollection =
+                    collection.getRelationsByPredicate(TEMP_COLLECTION_RELATION).includes(TEMP_COLLECTION_MARKER);
+                if (isTemporaryCollection) {
                     await collection.eraseTx();
                 }
             } catch (error) {
@@ -139,11 +168,15 @@ export default class Citation {
         const collection = new Zotero.Collection();
         (collection as any).libraryID = Zotero.Libraries.userLibraryID;
         collection.name = sessionID;
-        collection.addRelation(TEMP_COLLECTION_RELATION, TEMP_COLLECTION_MARKER);
         await collection.saveTx({ skipSelect: true });
+
+        this.temporaryCollectionKeys.add(collection.key);
+        this.saveTemporaryCollectionKeys();
 
         if (this.closing || this.sessions[sessionID] !== session) {
             await collection.eraseTx();
+            this.temporaryCollectionKeys.delete(collection.key);
+            this.saveTemporaryCollectionKeys();
             return;
         }
 
@@ -300,7 +333,27 @@ export default class Citation {
 
         if (session.collection?.id) {
             await session.collection.eraseTx();
+            this.temporaryCollectionKeys.delete(session.collection.key);
+            this.saveTemporaryCollectionKeys();
         }
+    }
+
+    private loadTemporaryCollectionKeys() {
+        const value = Zotero.Prefs.get(TEMP_COLLECTION_KEYS_PREF);
+        if (typeof value !== "string") {
+            return new Set<string>();
+        }
+
+        try {
+            const keys = JSON.parse(value);
+            return new Set(Array.isArray(keys) ? keys.filter((key): key is string => typeof key === "string") : []);
+        } catch {
+            return new Set<string>();
+        }
+    }
+
+    private saveTemporaryCollectionKeys() {
+        Zotero.Prefs.set(TEMP_COLLECTION_KEYS_PREF, JSON.stringify([...this.temporaryCollectionKeys]));
     }
 
     private handleWindowClose = (event: Event) => {
