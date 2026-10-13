@@ -1,4 +1,5 @@
 import { diffItemIDs } from "./citationUtils";
+import { patchMethod } from "./patch";
 
 // Retained only to clean up collections created by releases that used a
 // synced relation marker. New collections are tracked in a local preference.
@@ -15,8 +16,7 @@ export default class Citation {
     private clearPromise?: Promise<void>;
     private closing = false;
     private execCommandDepth = 0;
-    private originalExecCommand?: typeof Zotero.Integration.execCommand;
-    private patchedExecCommand?: typeof Zotero.Integration.execCommand;
+    private execCommandCleanup?: () => void;
     private pendingTasks = new Set<Promise<void>>();
     private temporaryCollectionKeys = new Set<string>();
 
@@ -57,8 +57,9 @@ export default class Citation {
             }
             try {
                 await collection.loadDataType("relations");
-                const isTemporaryCollection =
-                    collection.getRelationsByPredicate(TEMP_COLLECTION_RELATION).includes(TEMP_COLLECTION_MARKER);
+                const isTemporaryCollection = collection
+                    .getRelationsByPredicate(TEMP_COLLECTION_RELATION)
+                    .includes(TEMP_COLLECTION_MARKER);
                 if (isTemporaryCollection) {
                     await collection.eraseTx();
                 }
@@ -175,39 +176,42 @@ export default class Citation {
     }
 
     private patchExecCommand() {
-        if (this.patchedExecCommand) {
+        if (this.execCommandCleanup) {
             return;
         }
 
-        this.originalExecCommand = Zotero.Integration.execCommand;
-        this.patchedExecCommand = (async (...args: any[]) => {
-            this.execCommandDepth += 1;
-            let result;
-            try {
-                result = await (this.originalExecCommand as any).apply(Zotero.Integration, args);
-            } finally {
-                this.execCommandDepth = Math.max(0, this.execCommandDepth - 1);
-            }
+        this.execCommandCleanup = patchMethod(
+            Zotero.Integration,
+            "execCommand",
+            (original) =>
+                (async (...args: any[]) => {
+                    this.execCommandDepth += 1;
+                    let result;
+                    try {
+                        result = await (original as any).apply(Zotero.Integration, args);
+                    } finally {
+                        this.execCommandDepth = Math.max(0, this.execCommandDepth - 1);
+                    }
 
-            const docId = args[2];
-            if (typeof docId === "string" && !this.closing) {
-                this.trackTask(this.renameCurrentCollection(docId));
-            }
-            return result;
-        }) as typeof Zotero.Integration.execCommand;
-        Zotero.Integration.execCommand = this.patchedExecCommand;
+                    const docId = args[2];
+                    const sessionID = Zotero.Integration.currentSession?.sessionID;
+                    if (
+                        typeof docId === "string" &&
+                        sessionID &&
+                        !this.closing &&
+                        docId !== "__doc__" &&
+                        !docId.includes("Microsoft Word.app")
+                    ) {
+                        this.trackTask(this.renameCurrentCollection(docId, sessionID));
+                    }
+                    return result;
+                }) as typeof Zotero.Integration.execCommand,
+        );
     }
 
     private restoreExecCommand() {
-        if (
-            this.originalExecCommand &&
-            this.patchedExecCommand &&
-            Zotero.Integration.execCommand === this.patchedExecCommand
-        ) {
-            Zotero.Integration.execCommand = this.originalExecCommand;
-        }
-        this.originalExecCommand = undefined;
-        this.patchedExecCommand = undefined;
+        this.execCommandCleanup?.();
+        this.execCommandCleanup = undefined;
     }
 
     private trackTask(task: Promise<void>) {
@@ -217,16 +221,14 @@ export default class Citation {
             .finally(() => this.pendingTasks.delete(task));
     }
 
-    private async renameCurrentCollection(docId: string) {
+    private async renameCurrentCollection(docId: string, sessionID: string) {
         const deadline = Date.now() + RENAME_TIMEOUT;
         while (!this.closing && Date.now() < deadline) {
-            const sessionID = Zotero.Integration.currentSession?.sessionID;
-            const session = sessionID ? this.sessions[sessionID] : undefined;
+            const session = this.sessions[sessionID];
             if (sessionID && session?.collection) {
                 if ([sessionID, session.lastName].includes(session.collection.name)) {
                     const targetName = this.getDocumentName(docId);
                     if (targetName) {
-                        addon.data.docId = docId;
                         session.collection.name = targetName;
                         await session.collection.saveTx({ skipSelect: true });
                         session.lastName = targetName;
