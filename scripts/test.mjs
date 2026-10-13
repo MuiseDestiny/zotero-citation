@@ -1,4 +1,5 @@
 import { build } from "esbuild";
+import "../test/startup.test.mjs";
 
 const result = await build({
     entryPoints: ["test/index.ts"],

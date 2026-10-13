@@ -89,6 +89,7 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
      */
     const ctx = {
         rootURI,
+        Zotero,
     };
     ctx._globalThis = ctx;
 

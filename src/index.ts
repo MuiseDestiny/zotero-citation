@@ -1,23 +1,18 @@
-import { BasicTool } from "zotero-plugin-toolkit";
 import Addon from "./addon";
 import { config } from "../package.json";
 
-const basicTool = new BasicTool();
-
-if (!basicTool.getGlobal("Zotero")[config.addonInstance]) {
+const zotero = _globalThis.Zotero;
+if (!zotero[config.addonInstance]) {
+    const mainWindow = zotero.getMainWindow() as any;
     // Set global variables
-    _globalThis.Zotero = basicTool.getGlobal("Zotero");
-    _globalThis.ZoteroPane = basicTool.getGlobal("ZoteroPane");
-    _globalThis.Zotero_Tabs = basicTool.getGlobal("Zotero_Tabs");
-    _globalThis.window = basicTool.getGlobal("window");
-    _globalThis.document = basicTool.getGlobal("document");
-    _globalThis.console = basicTool.getGlobal("window").console;
+    _globalThis.Zotero = zotero;
+    _globalThis.ZoteroPane = mainWindow.ZoteroPane;
+    _globalThis.Zotero_Tabs = mainWindow.Zotero_Tabs;
+    _globalThis.window = mainWindow;
+    _globalThis.document = mainWindow.document;
+    _globalThis.console = mainWindow.console;
     _globalThis.addon = new Addon();
-    _globalThis.ztoolkit = addon.data.ztoolkit;
-    ztoolkit.basicOptions.log.prefix = `[${config.addonName}]`;
-    ztoolkit.basicOptions.log.disableConsole = true;
-    ztoolkit.UI.basicOptions.ui.enableElementJSONLog = false;
     Zotero[config.addonInstance] = addon;
     // Trigger addon hook for initialization
-    addon.hooks.onStartup().catch((error) => Zotero.logError(error));
+    addon.data.startupPromise = addon.hooks.onStartup().catch((error) => Zotero.logError(error));
 }

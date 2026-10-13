@@ -1,15 +1,13 @@
-import { ZoteroToolkit } from "zotero-plugin-toolkit";
 import hooks from "./hooks";
 import { citeItems } from "./modules/cite";
 import type Citation from "./modules/citation";
+import type Views from "./modules/views";
 
 class Addon {
     public data: {
         alive: boolean;
         // Env type, see build.js
         env: "development" | "production";
-        // ztoolkit: MyToolkit;
-        ztoolkit: ZoteroToolkit;
         locale?: {
             current: any;
         };
@@ -18,7 +16,8 @@ class Addon {
             rows: Array<{ [dataKey: string]: string }>;
         };
         citation?: Citation;
-        docId: string;
+        views?: Views;
+        startupPromise?: Promise<void>;
     };
     // Lifecycle hooks
     public hooks: typeof hooks;
@@ -31,9 +30,6 @@ class Addon {
         this.data = {
             alive: true,
             env: __env__,
-            // ztoolkit: new MyToolkit(),
-            ztoolkit: new ZoteroToolkit(),
-            docId: "__doc__",
         };
         this.hooks = hooks;
         this.api = { citeItems: citeItems };
