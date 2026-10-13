@@ -1,13 +1,13 @@
 {
     "name": "zotero-citation",
-    "version": "0.5.6",
+    "version": "0.5.8",
     "description": "Easier Citation for Zotero",
     "config": {
         "addonName": "Easier Citation",
         "addonID": "zoterocitation@polygon.org",
         "addonRef": "zoterocitation",
         "addonInstance": "ZoteroCitation",
-        "releasepage": "https://github.com/muisedestiny/eaiser-citation/releases/latest/download/zotero-citation.xpi",
+        "releasepage": "https://github.com/MuiseDestiny/zotero-citation/releases/latest/download/zotero-citation.xpi",
         "updaterdf": "https://raw.githubusercontent.com/muisedestiny/zotero-citation/bootstrap/update.json"
     },
     "main": "src/index.ts",
