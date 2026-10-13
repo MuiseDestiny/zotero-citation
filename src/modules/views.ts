@@ -8,11 +8,13 @@ class Views {
     private cleanups: (() => void)[] = [];
     private columnKey?: string;
     private draggedItems?: Zotero.Item[];
+    private dragCancelled = false;
     private closed = false;
     private icons = new Map<HTMLElement, { background: string; className: string }>();
 
     public async createCitationColumn() {
-        const registeredKey = await Zotero.ItemTreeManager.registerColumns({
+        const manager = Zotero.ItemTreeManager as any;
+        const options = {
             dataKey: "citation",
             label: getString("column-citation"),
             zoteroPersist: ["width", "hidden", "sortDirection"],
@@ -31,7 +33,13 @@ class Views {
                 ) as SessionData | undefined;
                 return session?.idData[item.id]?.plainCitation || "";
             },
-            renderCell: (_index, data, column, _isFirstColumn?: boolean, ownerDocument = document) => {
+            renderCell: (
+                _index: number,
+                data: string,
+                column: any,
+                _isFirstColumn?: boolean,
+                ownerDocument = document,
+            ) => {
                 const span = ownerDocument.createElement("span");
                 span.className = `cell ${column?.className || ""}`;
                 span.style.pointerEvents = "auto";
@@ -40,63 +48,68 @@ class Views {
                 return span;
             },
             pluginID: config.addonID,
-        });
-        if (typeof registeredKey === "string") {
-            this.columnKey = registeredKey;
-        }
+        };
+        const registered = await (manager.registerColumn
+            ? manager.registerColumn(options)
+            : manager.registerColumns(options));
+        const key = Array.isArray(registered) ? registered[0] : registered;
+        if (typeof key !== "string") throw new Error("Failed to register the citation column");
+        this.columnKey = key;
     }
 
     public async dragCite() {
-        const itemsView = ZoteroPane.itemsView as any;
-        this.cleanups.push(
-            patchMethod(itemsView, "onDragStart", (original: any) => (event: DragEvent, index: number) => {
-                this.draggedItems = undefined;
-                const quickCopy = Zotero.QuickCopy as any;
-                const restoreQuickCopy = this.isCitationVisible()
-                    ? patchMethod(
-                          quickCopy,
-                          "getContentFromItems",
-                          (copy: any) =>
-                              ((items: Zotero.Item[], ...args: any[]) => {
-                                  // Preserve native selection and item/file drag data, but do
-                                  // not schedule Quick Copy text exports for citation drags.
-                                  if (items.length && items.every((item) => item.isRegularItem())) return;
-                                  return copy.call(quickCopy, items, ...args);
-                              }) as typeof quickCopy.getContentFromItems,
-                      )
-                    : undefined;
-                let result;
-                try {
-                    result = original.call(itemsView, event, index);
-                } finally {
-                    restoreQuickCopy?.();
-                }
-                if (!this.isCitationVisible()) {
-                    return result;
-                }
-                const items = ZoteroPane.getSelectedItems();
-                if (!items.length || items.some((item) => !item.isRegularItem()) || !event.dataTransfer) {
-                    return result;
-                }
-                this.draggedItems = [...items];
-                // Keep zotero/item and native copy/move effects for collection drops.
-                event.dataTransfer.clearData("text/html");
-                event.dataTransfer.clearData("text/rtf");
-                event.dataTransfer.clearData("application/rtf");
-                event.dataTransfer.setData("text/plain", "");
-                return result;
-            }),
-        );
+        document.addEventListener("dragstart", this.handleDragStart, true);
         document.addEventListener("dragend", this.handleDragEnd, true);
+        document.addEventListener("drop", this.handleInternalDrop, true);
         document.addEventListener("keydown", this.handleDragCancel, true);
         this.cleanups.push(() => {
+            document.removeEventListener("dragstart", this.handleDragStart, true);
             document.removeEventListener("dragend", this.handleDragEnd, true);
+            document.removeEventListener("drop", this.handleInternalDrop, true);
             document.removeEventListener("keydown", this.handleDragCancel, true);
         });
     }
 
+    private handleDragStart = (event: DragEvent) => {
+        this.draggedItems = undefined;
+        this.dragCancelled = false;
+        if (!this.isCitationVisible() || !event.dataTransfer) return;
+        const itemsView = ZoteroPane.itemsView as any;
+        const target = event.target as HTMLElement;
+        // Zotero 11 uses treeitem; older virtual tables use row. Identify the
+        // actual item row independently of its accessibility role.
+        const row = target.closest?.(".row[id]");
+        if (!row || !itemsView.domEl?.contains(row)) return;
+        const match = row.id.match(/-row-(\d+)$/);
+        if (!match) return;
+        const index = Number(match[1]);
+        const item = itemsView.getRow(index)?.ref;
+        if (!item?.isRegularItem?.()) return;
+        const items: Zotero.Item[] = itemsView.selection.isSelected(index) ? itemsView.getSelectedItems() : [item];
+        if (!items.length || items.some((item) => !item.isRegularItem())) return;
+        if (!itemsView.selection.isSelected(index)) itemsView.selection.select(index);
+        const selectedIDs = new Set(items.map((item) => item.id));
+        const orderedItems: Zotero.Item[] = itemsView.getSortedItems?.() || items;
+        this.draggedItems = orderedItems.filter((item) => selectedIDs.has(item.id));
+        // Handle this DOM drag before native Quick Copy runs, including asynchronous
+        // exporters. Keep the item flavor used by Zotero's collection drop handlers.
+        event.stopImmediatePropagation();
+        // Preserve the virtual table's mouseup guard when skipping its row handler.
+        itemsView.tree?._onDragStart?.();
+        const transfer = event.dataTransfer;
+        transfer.effectAllowed = "copyMove";
+        transfer.setData("zotero/item", this.draggedItems.map((item) => item.id).join(","));
+        transfer.setData("text/plain", "");
+        transfer.setDragImage(row, 0, 0);
+    };
+
+    private handleInternalDrop = () => {
+        this.draggedItems = undefined;
+    };
+
     private handleDragCancel = (event: KeyboardEvent) => {
         if (event.key === "Escape") {
+            this.dragCancelled = true;
             this.draggedItems = undefined;
         }
     };
@@ -104,14 +117,17 @@ class Views {
     private handleDragEnd = (event: DragEvent) => {
         const items = this.draggedItems;
         this.draggedItems = undefined;
-        if (!items || this.closed || !this.isCitationVisible() || event.dataTransfer?.dropEffect === "none") {
+        if (!items || this.closed || this.dragCancelled || !this.isCitationVisible()) {
             return;
         }
-        void this.finishDrag(event, items).catch((error) => Zotero.logError(error));
+        // Empty-text external drops can report "none" even when released over Word.
+        // Gecko's native cancellation flag distinguishes Escape from that case.
+        if ((event.dataTransfer as any)?.mozUserCancelled) return;
+        void this.finishDrag(items).catch((error) => Zotero.logError(error));
     };
 
-    private async finishDrag(event: DragEvent, items: Zotero.Item[]) {
-        if (!this.closed && addon.data.alive !== false && isWordDropTarget(event)) {
+    private async finishDrag(items: Zotero.Item[]) {
+        if (!this.closed && addon.data.alive !== false && isWordDropTarget()) {
             await addon.api.citeItems(items);
         }
     }
@@ -152,7 +168,8 @@ class Views {
     }
 
     private isCitationVisible() {
-        const columns = (ZoteroPane.itemsView as any)?._columns;
+        const view = ZoteroPane.itemsView as any;
+        const columns = view?._getColumns?.() || view?._columns;
         return Boolean(columns?.some((column: any) => column.dataKey === this.columnKey && !column.hidden));
     }
 
@@ -168,7 +185,10 @@ class Views {
         }
         this.icons.clear();
         if (this.columnKey) {
-            await Zotero.ItemTreeManager.unregisterColumns(this.columnKey);
+            const manager = Zotero.ItemTreeManager as any;
+            await (manager.unregisterColumn
+                ? manager.unregisterColumn(this.columnKey)
+                : manager.unregisterColumns(this.columnKey));
             this.columnKey = undefined;
         }
     }

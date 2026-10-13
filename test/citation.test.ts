@@ -50,37 +50,41 @@ test("startup preserves saved searches and deletes only recorded temporary colle
     assert.equal(storedKeys, "[]");
 });
 
-test("integration patches remain inert after shutdown even when another plugin wraps them", async () => {
-    let commands = 0;
+test("document renames follow the matched session and preserve manual collection names", async () => {
+    (globalThis as any).Zotero = { ZoteroCitation: { api: {} } };
+    const citation = new Citation() as any;
+    citation.sessions.A = { collection: { name: "A", async saveTx() {} }, lastName: "A" };
+    citation.sessions.B = { collection: { name: "B", async saveTx() {} }, lastName: "B" };
+    await citation.renameCollection("A", "文档1");
+    await citation.renameCollection("A", "论文.docx");
+    assert.equal(citation.sessions.A.collection.name, "论文.docx");
+    assert.equal(citation.sessions.B.collection.name, "B");
+    citation.sessions.A.collection.name = "My collection";
+    await citation.renameCollection("A", "Renamed.docx");
+    assert.equal(citation.sessions.A.collection.name, "My collection");
+});
+
+test("citation labels redraw removed and added items without reloading the item list", async () => {
+    const redraws: any[] = [];
     (globalThis as any).Zotero = {
         ZoteroCitation: { api: {} },
-        Integration: {
-            execCommand: async () => {
-                commands++;
+        Libraries: { userLibraryID: 1 },
+        Items: { get: (id: number) => ({ id, libraryID: 1 }) },
+        Notifier: {
+            trigger: async (...args: any[]) => {
+                redraws.push(args);
+            },
+        },
+    };
+    (globalThis as any).ZoteroPane = {
+        itemsView: {
+            refreshAndMaintainSelection() {
+                throw new Error("must not reload the item list");
             },
         },
     };
     const citation = new Citation() as any;
-    citation.patchExecCommand();
-    const patched = (globalThis as any).Zotero.Integration.execCommand;
-    const otherPlugin = (...args: any[]) => patched(...args);
-    (globalThis as any).Zotero.Integration.execCommand = otherPlugin;
-    citation.restoreExecCommand();
-    assert.equal((globalThis as any).Zotero.Integration.execCommand, otherPlugin);
-    await otherPlugin("WinWord", "refresh", "C:/paper.docx");
-    assert.equal(commands, 1);
-});
-
-test("delayed collection renames keep the session that issued the integration command", async () => {
-    (globalThis as any).Zotero = {
-        ZoteroCitation: { api: {} },
-        Integration: { currentSession: { sessionID: "B" } },
-    };
-    (globalThis as any).PathUtils = { split: (path: string) => path.split("/") };
-    const citation = new Citation() as any;
-    citation.sessions.A = { collection: { name: "A", async saveTx() {} }, lastName: "A" };
-    citation.sessions.B = { collection: { name: "B", async saveTx() {} }, lastName: "B" };
-    await citation.renameCurrentCollection("C:/paper-A.docx", "A");
-    assert.equal(citation.sessions.A.collection.name, "paper-A.docx");
-    assert.equal(citation.sessions.B.collection.name, "B");
+    citation.sessions.A = { idData: { 1: { plainCitation: "0: [1]" } } };
+    await citation.updateCitations("A", { 2: [{ properties: { plainCitation: "[1]" } }] }, [2], "in-text");
+    assert.deepEqual(redraws, [["redraw", "item", [1, 2]]]);
 });

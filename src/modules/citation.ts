@@ -1,12 +1,12 @@
 import { diffItemIDs } from "./citationUtils";
-import { patchMethod } from "./patch";
+import { matchWordDocumentNames, readWordDocuments } from "./wordDocuments";
 
 // Retained only to clean up collections created by releases that used a
 // synced relation marker. New collections are tracked in a local preference.
 const TEMP_COLLECTION_RELATION = "dc:relation";
 const TEMP_COLLECTION_MARKER = "https://github.com/MuiseDestiny/zotero-citation#temporary-collection";
 const TEMP_COLLECTION_KEYS_PREF = "zotero-citation.temporaryCollectionKeys";
-const RENAME_TIMEOUT = 5000;
+const NAME_REFRESH_INTERVAL = 5000;
 
 export default class Citation {
     public sessions: { [sessionID: string]: SessionData } = {};
@@ -15,9 +15,9 @@ export default class Citation {
     private pollPromise?: Promise<void>;
     private clearPromise?: Promise<void>;
     private closing = false;
-    private execCommandDepth = 0;
-    private execCommandCleanup?: () => void;
-    private pendingTasks = new Set<Promise<void>>();
+    private nextNameRefresh = 0;
+    private unnamedDocumentIndex = 0;
+    private documentNames = new Map<string, string>();
     private temporaryCollectionKeys = new Set<string>();
 
     constructor() {
@@ -77,7 +77,6 @@ export default class Citation {
      */
     public async listener(t: number) {
         await this.clearStaleArtifacts();
-        this.patchExecCommand();
         window.addEventListener("close", this.handleWindowClose);
         this.intervalID = window.setInterval(() => this.schedulePoll(), t);
         this.schedulePoll();
@@ -99,7 +98,7 @@ export default class Citation {
     }
 
     private async pollSessions() {
-        if (this.closing || this.execCommandDepth > 0) {
+        if (this.closing || Zotero.Integration.currentDoc) {
             return;
         }
 
@@ -108,6 +107,16 @@ export default class Citation {
             String(integrationSessions[sessionID].agent).includes("Word"),
         );
         const activeSessionIDs = new Set(wordSessionIDs);
+
+        if (wordSessionIDs.length && Date.now() >= this.nextNameRefresh) {
+            this.nextNameRefresh = Date.now() + NAME_REFRESH_INTERVAL;
+            try {
+                const documents = await readWordDocuments();
+                if (!Zotero.Integration.currentDoc) this.documentNames = matchWordDocumentNames(documents);
+            } catch (error) {
+                this.logError("Failed to read Word document names", error);
+            }
+        }
 
         for (const sessionID of Object.keys(this.sessions)) {
             if (!activeSessionIDs.has(sessionID)) {
@@ -120,7 +129,7 @@ export default class Citation {
         }
 
         for (const sessionID of wordSessionIDs) {
-            if (this.closing || this.execCommandDepth > 0) {
+            if (this.closing || Zotero.Integration.currentDoc) {
                 return;
             }
 
@@ -130,7 +139,7 @@ export default class Citation {
                 session = {
                     collection: undefined,
                     idData: {},
-                    lastName: sessionID,
+                    lastName: this.documentNames.get(sessionID) || `Word (${++this.unnamedDocumentIndex})`,
                     pending: true,
                 };
                 this.sessions[sessionID] = session;
@@ -150,6 +159,9 @@ export default class Citation {
                 continue;
             }
 
+            await this.renameCollection(sessionID, this.documentNames.get(sessionID));
+            if (this.closing || Zotero.Integration.currentDoc) return;
+
             const citationsByItemID = integrationSession.citationsByItemID || {};
             const sortedItemIDs = this.getSortedItemIDs(integrationSession.citationsByIndex || {});
             await this.updateCitations(sessionID, citationsByItemID, sortedItemIDs, integrationSession.styleClass);
@@ -159,7 +171,7 @@ export default class Citation {
     private async initCollection(sessionID: string, session: SessionData) {
         const collection = new Zotero.Collection();
         (collection as any).libraryID = Zotero.Libraries.userLibraryID;
-        collection.name = sessionID;
+        collection.name = session.lastName;
         await collection.saveTx({ skipSelect: true });
 
         this.temporaryCollectionKeys.add(collection.key);
@@ -175,79 +187,20 @@ export default class Citation {
         session.collection = collection;
     }
 
-    private patchExecCommand() {
-        if (this.execCommandCleanup) {
-            return;
-        }
-
-        this.execCommandCleanup = patchMethod(
-            Zotero.Integration,
-            "execCommand",
-            (original) =>
-                (async (...args: any[]) => {
-                    this.execCommandDepth += 1;
-                    let result;
-                    try {
-                        result = await (original as any).apply(Zotero.Integration, args);
-                    } finally {
-                        this.execCommandDepth = Math.max(0, this.execCommandDepth - 1);
-                    }
-
-                    const docId = args[2];
-                    const sessionID = Zotero.Integration.currentSession?.sessionID;
-                    if (
-                        typeof docId === "string" &&
-                        sessionID &&
-                        !this.closing &&
-                        docId !== "__doc__" &&
-                        !docId.includes("Microsoft Word.app")
-                    ) {
-                        this.trackTask(this.renameCurrentCollection(docId, sessionID));
-                    }
-                    return result;
-                }) as typeof Zotero.Integration.execCommand,
-        );
-    }
-
-    private restoreExecCommand() {
-        this.execCommandCleanup?.();
-        this.execCommandCleanup = undefined;
-    }
-
-    private trackTask(task: Promise<void>) {
-        this.pendingTasks.add(task);
-        void task
-            .catch((error) => this.logError("Failed to rename a citation collection", error))
-            .finally(() => this.pendingTasks.delete(task));
-    }
-
-    private async renameCurrentCollection(docId: string, sessionID: string) {
-        const deadline = Date.now() + RENAME_TIMEOUT;
-        while (!this.closing && Date.now() < deadline) {
-            const session = this.sessions[sessionID];
-            if (sessionID && session?.collection) {
-                if ([sessionID, session.lastName].includes(session.collection.name)) {
-                    const targetName = this.getDocumentName(docId);
-                    if (targetName) {
-                        session.collection.name = targetName;
-                        await session.collection.saveTx({ skipSelect: true });
-                        session.lastName = targetName;
-                    }
-                }
-                return;
-            }
-            await Zotero.Promise.delay(50);
-        }
-    }
-
-    private getDocumentName(docId: string) {
-        let targetName = docId;
+    private async renameCollection(sessionID: string, name?: string) {
+        const session = this.sessions[sessionID];
+        const collection = session?.collection;
+        if (!name || !collection || collection.name === name || this.closing) return;
+        if (collection.name !== session.lastName && collection.name !== sessionID) return;
+        const previous = collection.name;
+        collection.name = name;
         try {
-            targetName = PathUtils.split(docId).slice(-1)[0];
-        } catch {
-            // Keep the original document identifier when it is not a filesystem path.
+            await collection.saveTx({ skipSelect: true });
+            session.lastName = name;
+        } catch (error) {
+            collection.name = previous;
+            throw error;
         }
-        return targetName?.trim() || "";
     }
 
     public getSortedItemIDs(citationsByIndex: any) {
@@ -294,9 +247,10 @@ export default class Citation {
                 const item = Zotero.Items.get(id);
                 return item && item.libraryID === Zotero.Libraries.userLibraryID;
             });
+        const changedIDs = [...new Set([...Object.keys(session.idData), ...Object.keys(targetData)])].map(Number);
         await this.syncCollectionItems(session, targetIDs);
         session.idData = targetData;
-        (ZoteroPane.itemsView as any).refreshAndMaintainSelection();
+        await Zotero.Notifier.trigger("redraw", "item", changedIDs);
     }
 
     private async syncCollectionItems(session: SessionData, targetIDs: number[]) {
@@ -377,9 +331,7 @@ export default class Citation {
             this.intervalID = undefined;
         }
         window.removeEventListener("close", this.handleWindowClose);
-        this.restoreExecCommand();
-
-        const activeTasks = [this.pollPromise, ...this.pendingTasks].filter(Boolean) as Promise<void>[];
+        const activeTasks = [this.pollPromise].filter(Boolean) as Promise<void>[];
         await Promise.allSettled(activeTasks);
 
         const results = await Promise.allSettled(

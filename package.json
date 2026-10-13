@@ -1,6 +1,6 @@
 {
     "name": "zotero-citation",
-    "version": "0.5.9-dev.1",
+    "version": "0.5.9-dev.4",
     "description": "Easier Citation for Zotero",
     "config": {
         "addonName": "Easier Citation",
@@ -27,6 +27,7 @@
         "release": "release-it",
         "lint": "prettier --write . && eslint . --ext .ts --fix",
         "test": "node scripts/test.mjs",
+        "test:runtime": "npm run build-prod -- --no-update && node scripts/test-runtime.mjs",
         "update-deps": "npm update --save"
     },
     "repository": {

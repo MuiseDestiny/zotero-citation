@@ -36,7 +36,7 @@ function isWindowsWordTarget(ctypes: any): boolean {
     }
 }
 
-function isMacWordTarget(ctypes: any, x: number, y: number): boolean {
+function isMacWordTarget(ctypes: any): boolean {
     const cf = ctypes.open("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation");
     let cg: any;
     let windows: any;
@@ -62,6 +62,18 @@ function isMacWordTarget(ctypes: any, x: number, y: number): boolean {
         const size = ctypes.StructType("CGSize", [{ width: ctypes.double }, { height: ctypes.double }]);
         const rect = ctypes.StructType("CGRect", [{ origin: point }, { size }]);
         const getBounds = cg.declare("CGRectMakeWithDictionaryRepresentation", abi, ctypes.bool, pointer, rect.ptr);
+        const createEvent = cg.declare("CGEventCreate", abi, pointer, pointer);
+        const getLocation = cg.declare("CGEventGetLocation", abi, point, pointer);
+        const release = cf.declare("CFRelease", abi, ctypes.void_t, pointer);
+        const mouseEvent = createEvent(pointer(0));
+        if (mouseEvent.isNull()) return false;
+        let location;
+        try {
+            location = getLocation(mouseEvent);
+        } finally {
+            release(mouseEvent);
+        }
+        const { x, y } = location;
         const key = (name: string) => cg.declare(name, pointer);
         const layerKey = key("kCGWindowLayer");
         const boundsKey = key("kCGWindowBounds");
@@ -113,7 +125,7 @@ function isMacWordTarget(ctypes: any, x: number, y: number): boolean {
     }
 }
 
-export function isWordDropTarget(event: Pick<DragEvent, "screenX" | "screenY">): boolean {
+export function isWordDropTarget(): boolean {
     try {
         let ctypes: any;
         try {
@@ -126,7 +138,9 @@ export function isWordDropTarget(event: Pick<DragEvent, "screenX" | "screenY">):
             return isWindowsWordTarget(ctypes);
         }
         if (Zotero.isMac) {
-            return isMacWordTarget(ctypes, event.screenX, event.screenY);
+            // Read coordinates in the same Quartz space as the window bounds.
+            // Gecko dragend screen coordinates vary on scaled/multiple displays.
+            return isMacWordTarget(ctypes);
         }
     } catch (error) {
         Zotero.logError(error instanceof Error ? error : new Error(String(error)));

@@ -1,5 +1,3 @@
-import { patchMethod } from "./patch";
-
 let activeCiteItems: Promise<void> | undefined;
 
 function getCitationItems(requestedItems?: Zotero.Item[]): Zotero.Item[] {
@@ -19,189 +17,101 @@ function getCitationItems(requestedItems?: Zotero.Item[]): Zotero.Item[] {
     return [...new Map(parents.map((item) => [item.id, item])).values()];
 }
 
-const runCiteItems = async (items: Zotero.Item[]) => {
-    const sessionPrototype = Zotero.Integration.Session.prototype;
-    const patchedCite = async function (this: any, field: any, addNote = false, addAnnotations = false) {
-        let newField;
-        let citation;
-        if (field) {
-            field = await Zotero.Integration.Field.loadExisting(field);
+const CITATION_DIALOGS = new Set([
+    "chrome://zotero/content/integration/citationDialog.xhtml",
+    "chrome://zotero/content/integration/quickFormat.xhtml",
+    "chrome://zotero/content/integration/addCitationDialog.xhtml",
+]);
 
-            if (field.type === 1) {
-                citation = new Zotero.Integration.Citation(
-                    field,
-                    await field.unserialize(),
-                    await field.getNoteIndex(),
-                );
-            } else if (field.type === 2) {
-                throw new Zotero.Exception.Alert("integration.error.inBibliography");
-            } else {
-                // A stale TEMP field can be left behind when an integration command
-                // is interrupted. Treat it as a new citation, like Zotero does.
-                newField = true;
-                field = new Zotero.Integration.CitationField(field._field);
-                citation = new Zotero.Integration.Citation(field);
-            }
-        } else {
-            newField = true;
-            field = new Zotero.Integration.CitationField(await this.addField(true));
-            citation = new Zotero.Integration.Citation(field);
-        }
-
-        // Delete only a newly created placeholder on failure. Once insertion has
-        // succeeded, later update errors must not erase the inserted citation.
-        let inserted = false;
-        try {
-            await citation.prepareForEditing();
-
-            // -------------------
-            // Preparing data to pass into CitationEditInterface
-
-            let fieldIndexPromise, citationsByItemIDPromise;
-            if (
-                !this.data.prefs.delayCitationUpdates ||
-                !Object.keys(this.citationsByItemID).length ||
-                this._sessionUpToDate
-            ) {
-                fieldIndexPromise = this.getFields().then(async function (fields: any) {
-                    for (let i = 0, n = fields.length; i < n; i++) {
-                        if (await fields[i].equals(field._field)) {
-                            // This is needed, because LibreOffice integration plugin caches the field code instead of asking
-                            // the document every time when calling #getCode().
-                            field = new Zotero.Integration.CitationField(fields[i]);
-                            return i;
-                        }
-                    }
-                    return -1;
-                });
-                citationsByItemIDPromise = this.updateFromDocument(0).then(() => {
-                    return this.citationsByItemID;
-                });
-            } else {
-                //@ts-ignore Promise has resolve()
-                fieldIndexPromise = Zotero.Promise.resolve(-1);
-                //@ts-ignore Promise has resolve()
-                citationsByItemIDPromise = Zotero.Promise.resolve(this.citationsByItemID);
-            }
-
-            const previewFn = async (previewCitation: any, format?: string) => {
-                const index = await fieldIndexPromise;
-                await citationsByItemIDPromise;
-                const [citations, fieldToCitationIndex] = this.getCiteprocLists();
-                let previousIndex = index - 1;
-                while (previousIndex >= 0 && !(previousIndex in fieldToCitationIndex)) {
-                    previousIndex -= 1;
-                }
-                const sliceIndex = (fieldToCitationIndex[previousIndex] ?? -1) + 1;
-                const citationID = previewCitation.citationID;
-                try {
-                    return this.style.previewCitationCluster(
-                        previewCitation,
-                        citations.slice(0, sliceIndex),
-                        citations.slice(sliceIndex),
-                        format || "rtf",
-                    );
-                } finally {
-                    // previewCitationCluster() temporarily assigns a citation ID.
-                    previewCitation.citationID = citationID;
+async function runCiteItems(items: Zotero.Item[]) {
+    const integration = Zotero.Integration as any;
+    // Do not attach to a citation dialog belonging to an already running command.
+    if (integration.currentDoc) return;
+    const watcher = Components.classes["@mozilla.org/embedcomp/window-watcher;1"].getService(
+        Components.interfaces.nsIWindowWatcher,
+    );
+    const cleanups = new Set<() => void>();
+    let submitted = false;
+    const observer = {
+        observe(subject: any, topic: string) {
+            if (topic !== "domwindowopened" || submitted) return;
+            const dialog = subject;
+            const getCitationIO = () => {
+                if (!CITATION_DIALOGS.has(dialog.location.href)) return;
+                const io = dialog.arguments?.[0]?.wrappedJSObject;
+                if (io instanceof integration.CitationEditInterface && integration.currentWindow === dialog) {
+                    return io;
                 }
             };
-            const io = new Zotero.Integration.CitationEditInterface(
-                citation,
-                this.style.opt.sort_citations,
-                fieldIndexPromise,
-                citationsByItemIDPromise,
-                previewFn,
-            );
-            io.isCitingNotes = addNote;
-            io.isAddingAnnotations = addAnnotations;
-            items.forEach((i) => {
-                const id = i.id;
-                if (!io.citation.citationItems.find((i: { id: number }) => i.id == id)) {
-                    io.citation.citationItems.push({ id });
+            const hideDialog = () => {
+                if (!getCitationIO()) return;
+                // AppWindow queues its first show until chrome loading finishes.
+                // Hiding at DOMContentLoaded clears that pending show; hiding only
+                // at load leaves a visible empty window during document writes.
+                const baseWindow = dialog.docShell.treeOwner.QueryInterface(Components.interfaces.nsIBaseWindow);
+                baseWindow.visibility = false;
+            };
+            const onDOMContentLoaded = (event: Event) => {
+                if (event.target === dialog.document) hideDialog();
+            };
+            const onLoad = (event: Event) => {
+                if (event.target !== dialog.document || submitted) return;
+                const io = getCitationIO();
+                if (!io) return;
+                hideDialog();
+                // Consume this command's native citation IO. Field loading, merging,
+                // cancellation and document writes remain Zotero's responsibility.
+                event.stopImmediatePropagation();
+                submitted = true;
+                // The UI never initializes, so its unload handler must not cancel the
+                // accepted citation when execCommand closes the window after writing.
+                if (typeof dialog.onUnload === "function") {
+                    dialog.removeEventListener("unload", dialog.onUnload);
                 }
-            });
-            if (!io.citation.citationItems.length) {
-                throw new Zotero.Exception.UserCancelled("inserting citation");
-            }
-
-            const [fieldIndex] = await Promise.all([fieldIndexPromise, citationsByItemIDPromise]);
-
-            const citations = await this._insertCitingResult(fieldIndex, field, io.citation);
-            inserted = true;
-            if (!this.data.prefs.delayCitationUpdates) {
-                if (citations.length != 1) {
-                    // We need to refetch fields because we've inserted multiple.
-                    // This is not super optimal, but you're inserting 2+ citations at the time,
-                    // so that sets it off
-                    // eslint-disable-next-line no-var
-                    var fields = await this.getFields(true);
+                dialog.document.documentElement.removeAttribute("onunload");
+                dialog.onunload = null;
+                for (const item of items) {
+                    if (!io.citation.citationItems.some((entry: any) => String(entry.id) === String(item.id))) {
+                        io.citation.citationItems.push({ id: item.id });
+                    }
                 }
-                // And resync citations with ones in the doc
-                await this.updateFromDocument(0);
-            }
-            for (const citation of citations) {
-                const citationFieldIndex = citation.fieldIndex ?? citation._fieldIndex;
-                let citationField = citation.field ?? citation._field;
-                if (fields) {
-                    citationField = new Zotero.Integration.CitationField(fields[citationFieldIndex]);
-                    citation.field = citationField;
-                }
-                await this.addCitation(citationFieldIndex, await citationField.getNoteIndex(), citation);
-            }
-            return citations;
-        } catch (error) {
-            if (newField && !inserted) {
-                try {
-                    await field.delete();
-                } catch (cleanupError) {
-                    Zotero.logError(cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError)));
-                }
-            }
-            throw error;
-        }
+                io.accept();
+            };
+            const cleanup = () => {
+                dialog.removeEventListener("DOMContentLoaded", onDOMContentLoaded, true);
+                dialog.removeEventListener("load", onLoad, true);
+            };
+            cleanups.add(cleanup);
+            dialog.addEventListener("DOMContentLoaded", onDOMContentLoaded, true);
+            dialog.addEventListener("load", onLoad, true);
+        },
     };
-    const restoreCite = patchMethod(sessionPrototype, "cite", () => patchedCite);
+    watcher.registerNotification(observer);
     try {
-        if (Zotero.isMac) {
-            await Zotero.Integration.execCommand(
-                "MacWord16",
-                "addEditCitation",
-                "/Applications/Microsoft Word.app/",
-                2,
-            );
-        } else {
-            await Zotero.Integration.execCommand(
-                "WinWord",
-                "addEditCitation",
-                // A non-document identifier makes Word resolve its active document
-                // instead of attaching to the last document used by integration.
-                "__doc__",
-                1,
-            );
-        }
+        await integration.execCommand(
+            Zotero.isMac ? "MacWord16" : "WinWord",
+            "addEditCitation",
+            // Windows' getActiveDocument() delegates to getDocument(null) in some
+            // integration builds. A non-path ID reaches its native active fallback.
+            Zotero.isMac ? "/Applications/Microsoft Word.app/" : "__doc__",
+            Zotero.isMac ? 2 : 1,
+        );
     } finally {
-        restoreCite();
+        watcher.unregisterNotification(observer);
+        for (const cleanup of cleanups) cleanup();
     }
-};
+}
 
 export const waitForCiteItems = async (): Promise<void> => {
     await activeCiteItems?.catch(() => {});
 };
 
 export const citeItems = async (requestedItems?: Zotero.Item[]): Promise<void> => {
-    if (activeCiteItems) {
-        return activeCiteItems;
-    }
-
+    if (activeCiteItems) return activeCiteItems;
     const items = getCitationItems(requestedItems);
-    if (!items.length) {
-        return Promise.resolve();
-    }
+    if (!items.length) return;
     const task = runCiteItems(items).finally(() => {
-        if (activeCiteItems === task) {
-            activeCiteItems = undefined;
-        }
+        if (activeCiteItems === task) activeCiteItems = undefined;
     });
     activeCiteItems = task;
     return task;

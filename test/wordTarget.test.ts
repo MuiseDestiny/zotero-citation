@@ -20,7 +20,7 @@ test("macOS detects the window under the drop and releases native resources", ()
         },
     });
     const ctypes: any = {
-        voidptr_t: {},
+        voidptr_t: Object.assign(() => pointer(undefined), {}),
         default_abi: {},
         long: {},
         bool: {},
@@ -73,6 +73,10 @@ test("macOS detects the window under the drop and releases native resources", ()
                             output.text = string.value;
                             return true;
                         };
+                    case "CGEventCreate":
+                        return () => pointer({});
+                    case "CGEventGetLocation":
+                        return () => ({ x: 200, y: 200 });
                     case "CFRelease":
                         return () => {
                             released++;
@@ -93,12 +97,12 @@ test("macOS detects the window under the drop and releases native resources", ()
         kCGWindowBounds: box,
     });
     windows = [window("Drag image", 25), window("Microsoft Word")];
-    assert.equal(isWordDropTarget({ screenX: 200, screenY: 200 }), true);
+    assert.equal(isWordDropTarget(), true);
     windows = [window("Google Chrome"), window("Microsoft Word")];
-    assert.equal(isWordDropTarget({ screenX: 200, screenY: 200 }), false);
+    assert.equal(isWordDropTarget(), false);
     windows = [window("Microsoft Word", 0, { ...bounds, x: 1000 })];
-    assert.equal(isWordDropTarget({ screenX: 200, screenY: 200 }), false);
-    assert.equal(released, 3);
+    assert.equal(isWordDropTarget(), false);
+    assert.equal(released, 6);
     assert.equal(closed, 6);
     assert.deepEqual(errors, []);
 
@@ -112,7 +116,7 @@ test("macOS detects the window under the drop and releases native resources", ()
         },
     };
     windows = [window("Microsoft Word")];
-    assert.equal(isWordDropTarget({ screenX: 200, screenY: 200 }), true);
+    assert.equal(isWordDropTarget(), true);
 });
 
 test("does not insert a citation when native target detection is unavailable", () => {
@@ -127,6 +131,6 @@ test("does not insert a citation when native target detection is unavailable", (
             },
         }),
     };
-    assert.equal(isWordDropTarget({ screenX: 0, screenY: 0 }), false);
+    assert.equal(isWordDropTarget(), false);
     assert.equal(errors.length, 1);
 });
