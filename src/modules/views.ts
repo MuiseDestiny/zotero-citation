@@ -8,7 +8,6 @@ class Views {
     private cleanups: (() => void)[] = [];
     private columnKey?: string;
     private draggedItems?: Zotero.Item[];
-    private citationDragRow?: Element;
     private closed = false;
     private icons = new Map<HTMLElement, { background: string; className: string }>();
 
@@ -35,7 +34,6 @@ class Views {
             renderCell: (_index, data, column, _isFirstColumn?: boolean, ownerDocument = document) => {
                 const span = ownerDocument.createElement("span");
                 span.className = `cell ${column?.className || ""}`;
-                span.dataset.zoteroCitationDrag = "true";
                 span.style.pointerEvents = "auto";
                 span.title = getString("drag-citation");
                 span.textContent = data?.replace(/^\d+:\s*/, "") || "";
@@ -53,16 +51,27 @@ class Views {
         this.cleanups.push(
             patchMethod(itemsView, "onDragStart", (original: any) => (event: DragEvent, index: number) => {
                 this.draggedItems = undefined;
-                const result = original.call(itemsView, event, index);
-                const target = event.target as Element | null;
-                const origin = this.citationDragRow;
-                this.citationDragRow = undefined;
-                // dragstart targets the draggable row, so remember the cell pressed
-                // before the native drag started.
-                const fromCitation =
-                    target?.closest?.('[data-zotero-citation-drag="true"]') ||
-                    (origin && (event.currentTarget === origin || target === origin));
-                if (!fromCitation || !this.isCitationVisible()) {
+                const quickCopy = Zotero.QuickCopy as any;
+                const restoreQuickCopy = this.isCitationVisible()
+                    ? patchMethod(
+                          quickCopy,
+                          "getContentFromItems",
+                          (copy: any) =>
+                              ((items: Zotero.Item[], ...args: any[]) => {
+                                  // Preserve native selection and item/file drag data, but do
+                                  // not schedule Quick Copy text exports for citation drags.
+                                  if (items.length && items.every((item) => item.isRegularItem())) return;
+                                  return copy.call(quickCopy, items, ...args);
+                              }) as typeof quickCopy.getContentFromItems,
+                      )
+                    : undefined;
+                let result;
+                try {
+                    result = original.call(itemsView, event, index);
+                } finally {
+                    restoreQuickCopy?.();
+                }
+                if (!this.isCitationVisible()) {
                     return result;
                 }
                 const items = ZoteroPane.getSelectedItems();
@@ -70,42 +79,31 @@ class Views {
                     return result;
                 }
                 this.draggedItems = [...items];
-                // Only an explicit drag from the citation cell replaces native content.
-                event.dataTransfer.clearData();
+                // Keep zotero/item and native copy/move effects for collection drops.
+                event.dataTransfer.clearData("text/html");
+                event.dataTransfer.clearData("text/rtf");
+                event.dataTransfer.clearData("application/rtf");
                 event.dataTransfer.setData("text/plain", "");
-                event.dataTransfer.effectAllowed = "copy";
                 return result;
             }),
         );
         document.addEventListener("dragend", this.handleDragEnd, true);
-        document.addEventListener("mousedown", this.handleMouseDown, true);
         document.addEventListener("keydown", this.handleDragCancel, true);
         this.cleanups.push(() => {
             document.removeEventListener("dragend", this.handleDragEnd, true);
-            document.removeEventListener("mousedown", this.handleMouseDown, true);
             document.removeEventListener("keydown", this.handleDragCancel, true);
         });
     }
 
-    private handleMouseDown = (event: MouseEvent) => {
-        const target = event.target as Element | null;
-        this.citationDragRow =
-            event.button === 0 && target?.closest?.('[data-zotero-citation-drag="true"]')
-                ? target.closest('[draggable="true"]') || undefined
-                : undefined;
-    };
-
     private handleDragCancel = (event: KeyboardEvent) => {
         if (event.key === "Escape") {
             this.draggedItems = undefined;
-            this.citationDragRow = undefined;
         }
     };
 
     private handleDragEnd = (event: DragEvent) => {
         const items = this.draggedItems;
         this.draggedItems = undefined;
-        this.citationDragRow = undefined;
         if (!items || this.closed || !this.isCitationVisible() || event.dataTransfer?.dropEffect === "none") {
             return;
         }
@@ -161,7 +159,6 @@ class Views {
     public async clear() {
         this.closed = true;
         this.draggedItems = undefined;
-        this.citationDragRow = undefined;
         for (const cleanup of this.cleanups.splice(0).reverse()) {
             cleanup();
         }

@@ -10,6 +10,9 @@ function setup() {
     let nextDragSelection = [item];
     let column: any;
     let drags = 0;
+    let quickCopyCalls = 0;
+    let failDrag = false;
+    let lateExport: (() => void) | undefined;
     const unregistered: string[] = [];
     const inserted: any[] = [];
     const documentMock: any = {
@@ -34,8 +37,18 @@ function setup() {
             drags++;
             selected = nextDragSelection;
             this.selection.selectedIndex = index;
-            event.dataTransfer.setData("application/x-zotero-items", "1");
-            event.dataTransfer.setData("text/plain", "Native citation");
+            event.dataTransfer.setData("zotero/item", selected.map((item: any) => item.id).join(","));
+            event.dataTransfer.effectAllowed = "copyMove";
+            const quickCopy = (globalThis as any).Zotero.QuickCopy.getContentFromItems;
+            const content = quickCopy(selected, {}, (data: any) => event.dataTransfer.setData("text/plain", data.text));
+            if (content) {
+                event.dataTransfer.setData("text/plain", content.text);
+                event.dataTransfer.setData("text/html", content.html);
+            }
+            if (selected.some((item: any) => !item.isRegularItem())) {
+                event.dataTransfer.setData("application/x-moz-file", "paper.pdf");
+            }
+            if (failDrag) throw new Error("native drag failed");
             return "native-result";
         },
     };
@@ -50,6 +63,13 @@ function setup() {
         isWin: true,
         ZoteroCitation: { api: { sessions: {} } },
         Integration: {},
+        QuickCopy: {
+            getContentFromItems(_items: any[], _format: any, callback: (data: any) => void) {
+                quickCopyCalls++;
+                lateExport = () => callback({ text: "Late export" });
+                return { text: "Native citation", html: "<p>Native citation</p>" };
+            },
+        },
         ItemTreeManager: {
             async registerColumns(options: any) {
                 column = options;
@@ -72,6 +92,11 @@ function setup() {
         inserted,
         getColumn: () => column,
         getDrags: () => drags,
+        getQuickCopyCalls: () => quickCopyCalls,
+        runLateExport: () => lateExport?.(),
+        failDrag: () => {
+            failDrag = true;
+        },
         select: (items: any[]) => {
             selected = items;
         },
@@ -81,57 +106,30 @@ function setup() {
     };
 }
 
-function drag(fromCitation = false): any {
+function drag(): any {
     const payload = new Map<string, string>();
     return {
         payload,
         screenX: 500,
         screenY: 500,
-        target: { closest: () => (fromCitation ? {} : null) },
+        target: {},
         dataTransfer: {
             dropEffect: "copy",
             effectAllowed: "all",
-            clearData: () => payload.clear(),
+            clearData: (type?: string) => (type ? payload.delete(type) : payload.clear()),
             setData: (type: string, data: string) => payload.set(type, data),
         },
     };
 }
 
-test("ordinary item and PDF drags retain native payloads and never trigger quick citation", async () => {
-    const mock = setup();
-    const views = new Views();
-    await views.createCitationColumn();
-    await views.dragCite();
-    for (const regular of [true, false]) {
-        mock.dragSelection([{ id: 2, isRegularItem: () => regular }]);
-        const event = drag();
-        const result = mock.itemsView.onDragStart(event, 3);
-        mock.listeners.get("dragend")!(event);
-        assert.equal(result, "native-result");
-        assert.equal(mock.itemsView.selection.selectedIndex, 3);
-        assert.deepEqual(
-            [...event.payload],
-            [
-                ["application/x-zotero-items", "1"],
-                ["text/plain", "Native citation"],
-            ],
-        );
-    }
-    assert.deepEqual(mock.inserted, []);
-    await views.clear();
-});
-
-test("explicit citation drags use the original selection and reject non-Word or cancelled drops", async () => {
-    const mock = setup();
-    const views = new Views();
-    await views.createCitationColumn();
-    await views.dragCite();
+function installWordTargetMock() {
     let word = true;
     const nullPointer = { isNull: () => false };
     const ctypes: any = {
         winapi_abi: {},
         voidptr_t: {},
         uint32_t: {},
+        int32_t: {},
         char16_t: {
             ptr: {},
             array: (length: number) => () => ({
@@ -142,7 +140,6 @@ test("explicit citation drags use the original selection and reject non-Word or 
                 },
             }),
         },
-        int32_t: {},
         StructType: () => Object.assign(() => ({ address: () => ({}) }), { ptr: {} }),
         open: () => ({
             close() {},
@@ -160,38 +157,140 @@ test("explicit citation drags use the original selection and reject non-Word or 
         }),
     };
     (globalThis as any).ChromeUtils = { importESModule: () => ({ ctypes }) };
-    let event = drag();
-    const row = event.target;
-    mock.listeners.get("mousedown")!({ button: 0, target: { closest: () => row } });
-    event.currentTarget = row;
+    return {
+        setWord: (value: boolean) => {
+            word = value;
+        },
+    };
+}
+
+test("drags from any column keep collection data and suppress duplicate Quick Copy text", async () => {
+    const mock = setup();
+    const target = installWordTargetMock();
+    target.setWord(false);
+    const views = new Views();
+    await views.createCitationColumn();
+    await views.dragCite();
+    const originalQuickCopy = (globalThis as any).Zotero.QuickCopy.getContentFromItems;
+    for (const column of ["title", "creator", "citation"]) {
+        mock.dragSelection([
+            { id: 2, isRegularItem: () => true },
+            { id: 3, isRegularItem: () => true },
+        ]);
+        const event = drag();
+        event.target = { className: `cell ${column}` };
+        const result = mock.itemsView.onDragStart(event, 3);
+        mock.listeners.get("dragend")!(event);
+        assert.equal(result, "native-result");
+        assert.equal(mock.itemsView.selection.selectedIndex, 3);
+        assert.deepEqual(
+            [...event.payload],
+            [
+                ["zotero/item", "2,3"],
+                ["text/plain", ""],
+            ],
+        );
+        assert.equal(event.dataTransfer.effectAllowed, "copyMove");
+    }
+    mock.runLateExport();
+    assert.equal(mock.getQuickCopyCalls(), 0);
+    assert.equal((globalThis as any).Zotero.QuickCopy.getContentFromItems, originalQuickCopy);
+    assert.deepEqual(mock.inserted, []);
+    await views.clear();
+});
+
+test("PDF and mixed drags preserve their native file and text payloads even over Word", async () => {
+    const mock = setup();
+    installWordTargetMock();
+    const views = new Views();
+    await views.createCitationColumn();
+    await views.dragCite();
+    const pdf = { id: 2, isRegularItem: () => false };
+    const regular = { id: 3, isRegularItem: () => true };
+    for (const items of [[pdf], [regular, pdf]]) {
+        mock.dragSelection(items);
+        const event = drag();
+        mock.itemsView.onDragStart(event, 0);
+        mock.listeners.get("dragend")!(event);
+        assert.equal(event.payload.get("application/x-moz-file"), "paper.pdf");
+        assert.equal(event.payload.get("text/plain"), "Native citation");
+        assert.equal(event.payload.get("text/html"), "<p>Native citation</p>");
+    }
+    assert.equal(mock.getQuickCopyCalls(), 2);
+    assert.deepEqual(mock.inserted, []);
+    await views.clear();
+});
+
+test("hiding the citation column restores full native dragging and Quick Copy", async () => {
+    const mock = setup();
+    installWordTargetMock();
+    mock.itemsView._columns[0].hidden = true;
+    const views = new Views();
+    await views.createCitationColumn();
+    await views.dragCite();
+    const event = drag();
     mock.itemsView.onDragStart(event, 0);
-    assert.deepEqual([...event.payload], [["text/plain", ""]]);
+    mock.listeners.get("dragend")!(event);
+    assert.equal(mock.getQuickCopyCalls(), 1);
+    assert.equal(event.payload.get("text/plain"), "Native citation");
+    assert.deepEqual(mock.inserted, []);
+    await views.clear();
+});
+
+test("restores Quick Copy even if native drag handling throws", async () => {
+    const mock = setup();
+    const views = new Views();
+    await views.createCitationColumn();
+    await views.dragCite();
+    const original = (globalThis as any).Zotero.QuickCopy.getContentFromItems;
+    mock.failDrag();
+    assert.throws(() => mock.itemsView.onDragStart(drag(), 0), /native drag failed/);
+    assert.equal((globalThis as any).Zotero.QuickCopy.getContentFromItems, original);
+    await views.clear();
+});
+
+test("any-column drags use the original selection and reject non-Word or cancelled drops", async () => {
+    const mock = setup();
+    const views = new Views();
+    await views.createCitationColumn();
+    await views.dragCite();
+    const target = installWordTargetMock();
+    let event = drag();
+    mock.itemsView.onDragStart(event, 0);
+    assert.deepEqual(
+        [...event.payload],
+        [
+            ["zotero/item", "1"],
+            ["text/plain", ""],
+        ],
+    );
     mock.select([{ id: 99 }]);
     mock.listeners.get("dragend")!(event);
     await Promise.resolve();
     assert.deepEqual(mock.inserted, [[1]]);
     mock.dragSelection([{ id: 123, isRegularItem: () => false }]);
-    event = drag(true);
+    event = drag();
     mock.itemsView.onDragStart(event, 0);
-    assert.equal(event.payload.get("application/x-zotero-items"), "1");
+    assert.equal(event.payload.get("zotero/item"), "123");
     mock.listeners.get("dragend")!(event);
     assert.deepEqual(mock.inserted, [[1]]);
 
-    word = false;
-    event = drag(true);
+    mock.dragSelection([{ id: 1, isRegularItem: () => true }]);
+    target.setWord(false);
+    event = drag();
     mock.itemsView.onDragStart(event, 0);
     mock.listeners.get("dragend")!(event);
-    word = true;
-    event = drag(true);
+    target.setWord(true);
+    event = drag();
     mock.itemsView.onDragStart(event, 0);
     mock.listeners.get("keydown")!({ key: "Escape" });
     mock.listeners.get("dragend")!(event);
-    event = drag(true);
+    event = drag();
     mock.itemsView.onDragStart(event, 0);
     event.dataTransfer.dropEffect = "none";
     mock.listeners.get("dragend")!(event);
     mock.dragSelection([{ id: 1, isRegularItem: () => true }]);
-    event = drag(true);
+    event = drag();
     mock.itemsView.onDragStart(event, 0);
     mock.itemsView._columns[0].hidden = true;
     mock.listeners.get("dragend")!(event);
@@ -222,6 +321,6 @@ test("renders the citation cell into the owning document without relying on row 
     await views.createCitationColumn();
     const cell = mock.getColumn().renderCell(0, "0: [1]", { className: "citation" }, false, mock.documentMock);
     assert.equal(cell.textContent, "[1]");
-    assert.equal(cell.dataset.zoteroCitationDrag, "true");
+    assert.equal(cell.dataset.zoteroCitationDrag, undefined);
     await views.clear();
 });

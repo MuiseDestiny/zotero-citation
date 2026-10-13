@@ -12,6 +12,7 @@ const { name, author, description, homepage, version, config } = details;
 const t = new Date();
 const buildTime = dateFormat("YYYY-mm-dd HH:MM:SS", new Date());
 const buildDir = "build";
+const writeUpdateManifest = !process.argv.includes("--no-update");
 
 function copyFileSync(source, target) {
     var targetFile = target;
@@ -115,7 +116,7 @@ function replaceString() {
             `${buildDir}/addon/prefs.js`,
             `${buildDir}/addon/manifest.json`,
             `${buildDir}/addon/bootstrap.js`,
-            "update.json",
+            ...(writeUpdateManifest ? ["update.json"] : []),
         ],
         from: replaceFrom,
         to: replaceTo,
@@ -195,7 +196,9 @@ async function main() {
 
     copyFolderRecursiveSync("addon", buildDir);
 
-    copyFileSync("update-template.json", "update.json");
+    if (writeUpdateManifest) {
+        copyFileSync("update-template.json", "update.json");
+    }
 
     await esbuild();
 

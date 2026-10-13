@@ -56,7 +56,7 @@
 
 #### 2.2 拖拽引用 (Drag-and-drop citation)
 
-> 在 Zotero 中选中待引用条目（可多选），从条目的「引用」列拖到 Word 中需要添加引用的位置。拖拽标题等其他列以及 PDF 附件时，保留 Zotero 原生拖拽行为。(Select the items to cite, then drag from the Citation column to the insertion point in Word. Dragging other columns or PDF attachments keeps Zotero's native drag behavior.)
+> 在 Zotero 中选中待引用条目（可多选），从标题、作者、引用等任意列拖到 Word 中需要添加引用的位置。拖入 Zotero 分类和拖出 PDF 附件时，保留 Zotero 原生拖拽行为。(Select the items to cite, then drag from any column, including Title, Creator or Citation, to the insertion point in Word. Dragging into Zotero collections or dragging PDF attachments out keeps Zotero's native drag behavior.)
 
 **需要开启引用列才可以使用，反之若想禁用拖拽引用，关闭引用列即可** (**The citation column requires to be turned on in the plugin setting for this to work, otherwise if you want to disable drag-and-drop references, just turn off the reference column**.)
 
