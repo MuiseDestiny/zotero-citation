@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { citeItems } from "../src/modules/cite";
-import "./citationUtils.test";
 
 function installZoteroMock(execCommand: (...args: any[]) => Promise<void>) {
     class Session {

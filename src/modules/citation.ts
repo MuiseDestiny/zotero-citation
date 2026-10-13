@@ -1,4 +1,4 @@
-import { diffItemIDs, isLegacyCitationSearch } from "./citationUtils";
+import { diffItemIDs } from "./citationUtils";
 
 // Retained only to clean up collections created by releases that used a
 // synced relation marker. New collections are tracked in a local preference.
@@ -25,8 +25,7 @@ export default class Citation {
     }
 
     /**
-     * Remove temporary collections left by an interrupted shutdown and migrate
-     * the all-items saved searches created by older versions of the plugin.
+     * Remove only temporary collections whose ownership was recorded by the plugin.
      */
     private async clearStaleArtifacts() {
         const libraryID = Zotero.Libraries.userLibraryID;
@@ -68,16 +67,8 @@ export default class Citation {
             }
         }
 
-        const searches = (Zotero.Searches as any).getByLibrary(libraryID) as Zotero.Search[];
-        for (const search of searches) {
-            try {
-                if (isLegacyCitationSearch(search.getConditions() as any)) {
-                    await search.eraseTx();
-                }
-            } catch (error) {
-                this.logError("Failed to remove a legacy citation search", error);
-            }
-        }
+        // Old saved searches have no ownership marker. Their conditions can also
+        // be user-authored, so leave them for the user to remove manually.
     }
 
     /**

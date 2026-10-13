@@ -1,7 +1,7 @@
 import { build } from "esbuild";
 
 const result = await build({
-    entryPoints: ["test/cite.test.ts"],
+    entryPoints: ["test/index.ts"],
     bundle: true,
     format: "esm",
     platform: "node",
