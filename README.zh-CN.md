@@ -1,4 +1,4 @@
-# Zotero Citation · Easier Citation
+# Zotero Citation
 
 <img src="addon/chrome/content/icons/favicon.png" alt="Zotero Citation" width="64">
 
