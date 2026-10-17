@@ -62,7 +62,7 @@ Easier Citation connects your Zotero library with Microsoft Word: browse cited i
 在 Zotero 条目列表的列标题菜单中启用“引用”列，即可查看条目在对应 Word 引用会话中的引用标记。
 
 -   选中插件生成的临时分类时，优先显示该分类对应文档的信息。
--   在其他位置，使用 Zotero 当前引用会话的信息；没有可用会话或条目未被引用时留空。
+-   在其他位置，优先使用 Zotero 当前引用会话；没有当前会话时，仅在只有一个 Word 会话的情况下回退显示。多会话不猜测文档；没有可用会话或条目未被引用时留空。
 -   文内引用显示会话提供的引用文本；同一条目在多处被引用时，会汇总这些记录。
 -   注释型样式当前显示文献首次出现顺序对应的编号，不应将其视为 Word 中每处脚注的实际编号。
 
@@ -102,6 +102,8 @@ Easier Citation connects your Zotero library with Microsoft Word: browse cited i
 </details>
 
 > 以上演示来自较早版本，具体界面以当前 Zotero 和插件为准。
+
+如果需要保留“引用”列但关闭拖拽引用，在 Zotero 的高级设置编辑器中将 `extensions.zotero.zoterocitation.dragCite.enable` 设为 `false`；设回 `true` 即可恢复。此设置不影响快捷键引用。
 
 ## 实现原理
 

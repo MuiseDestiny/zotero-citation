@@ -57,7 +57,7 @@ For a permanent list, add items to your own regular collection. Renaming a tempo
 
 ### Use the Citation Column
 
-Enable **Citation** from the item-list column header menu. A plugin-created collection takes priority when selecting the document to display; elsewhere, the column uses Zotero’s current citation session. Without a relevant session or citation, it stays empty.
+Enable **Citation** from the item-list column header menu. A plugin-created collection takes priority when selecting the document to display; elsewhere, the column uses Zotero’s current citation session, or the sole Word session when no current session is available. With multiple sessions and no current one, it does not guess. Without a relevant session or citation, it stays empty.
 
 In-text styles show citation text supplied by the session, listing multiple occurrences together. **Note styles currently show first-appearance order, not the actual footnote number of each occurrence in Word.**
 
@@ -97,6 +97,8 @@ At a suitable position next to `[1]`, Zotero can merge another item into `[1, 2]
 </details>
 
 > Demos come from earlier versions; the current interface may differ.
+
+To keep the Citation column but disable drag-to-cite, open Zotero’s Config Editor and set `extensions.zotero.zoterocitation.dragCite.enable` to `false`. Set it back to `true` to re-enable dragging. This preference does not disable the keyboard shortcut.
 
 ## How It Works
 

@@ -21,5 +21,7 @@ test("falls back to the active session for ordinary collections", () => {
     assert.equal(selectCitationSession({ key: "my-library" }, [activeSession], activeSession), activeSession);
     assert.equal(selectCitationSession({}, [activeSession], activeSession), activeSession);
     assert.equal(selectCitationSession(undefined, [activeSession], activeSession), activeSession);
-    assert.equal(selectCitationSession({ key: "my-library" }, [activeSession], undefined), undefined);
+    assert.equal(selectCitationSession({ key: "my-library" }, [activeSession], undefined), activeSession);
+    assert.equal(selectCitationSession(undefined, [activeSession], undefined), activeSession);
+    assert.equal(selectCitationSession(undefined, [activeSession, otherSession], undefined), undefined);
 });

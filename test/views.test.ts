@@ -54,6 +54,7 @@ function setup(modern = true, arrayResult = false) {
         ItemTreeManager: manager,
         ZoteroCitation: { api: { sessions: {} } },
         Integration: {},
+        Prefs: { get: () => undefined },
         logError: (e: Error) => {
             throw e;
         },
@@ -225,5 +226,41 @@ test("captures dragged selection but rejects internal, Escape, native-cancelled 
     wordTarget(false);
     mock.listeners.get("dragend")(event);
     assert.deepEqual(mock.inserted, [[1]]);
+    await views.clear();
+});
+
+test("drag preference preserves native dragging while the Citation column remains visible", async () => {
+    const mock = setup();
+    let enabled = false;
+    (globalThis as any).Zotero.Prefs.get = (key: string) => {
+        assert.equal(key, "zoterocitation.dragCite.enable");
+        return enabled;
+    };
+    wordTarget();
+    const views = new Views();
+    await views.createCitationColumn();
+    await views.dragCite();
+    const native = drag();
+    mock.listeners.get("dragstart")(native);
+    assert.equal(native.stopped(), false);
+    assert.equal(mock.view._columns[0].hidden, false);
+    enabled = true;
+    const event = drag();
+    mock.listeners.get("dragstart")(event);
+    assert.equal(event.stopped(), true);
+    enabled = false;
+    mock.listeners.get("dragend")(event);
+    assert.deepEqual(mock.inserted, []);
+    await views.clear();
+});
+
+test("citation column uses a sole Word session outside its temporary collection", async () => {
+    const mock = setup();
+    (globalThis as any).Zotero.ZoteroCitation.api.sessions = {
+        A: { collection: { key: "document" }, idData: { 1: { plainCitation: "0: [1]" } } },
+    };
+    const views = new Views();
+    await views.createCitationColumn();
+    assert.equal(mock.column().dataProvider({ id: 1 }), "0: [1]");
     await views.clear();
 });

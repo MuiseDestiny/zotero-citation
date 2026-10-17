@@ -22,9 +22,13 @@ export function selectCitationSession<T extends CitationSessionLike>(
     activeSession: T | undefined,
 ): T | undefined {
     if (!selectedCollection?.key) {
-        return activeSession;
+        return activeSession ?? (sessions.length === 1 ? sessions[0] : undefined);
     }
 
     const selectedSession = sessions.find((session) => session.collection?.key === selectedCollection.key);
-    return selectedSession ?? activeSession;
+    return selectedSession ?? activeSession ?? (sessions.length === 1 ? sessions[0] : undefined);
+}
+
+export function isLocalItemID(id: unknown): boolean {
+    return /^\d+$/.test(String(id)) && Number.isSafeInteger(Number(id)) && Number(id) > 0;
 }

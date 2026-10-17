@@ -73,7 +73,7 @@ class Views {
     private handleDragStart = (event: DragEvent) => {
         this.draggedItems = undefined;
         this.dragCancelled = false;
-        if (!this.isCitationVisible() || !event.dataTransfer) return;
+        if (!this.isDragCitationEnabled() || !event.dataTransfer) return;
         const itemsView = ZoteroPane.itemsView as any;
         const target = event.target as HTMLElement;
         // Zotero 11 uses treeitem; older virtual tables use row. Identify the
@@ -117,7 +117,7 @@ class Views {
     private handleDragEnd = (event: DragEvent) => {
         const items = this.draggedItems;
         this.draggedItems = undefined;
-        if (!items || this.closed || this.dragCancelled || !this.isCitationVisible()) {
+        if (!items || this.closed || this.dragCancelled || !this.isDragCitationEnabled()) {
             return;
         }
         // Empty-text external drops can report "none" even when released over Word.
@@ -171,6 +171,10 @@ class Views {
         const view = ZoteroPane.itemsView as any;
         const columns = view?._getColumns?.() || view?._columns;
         return Boolean(columns?.some((column: any) => column.dataKey === this.columnKey && !column.hidden));
+    }
+
+    private isDragCitationEnabled() {
+        return Zotero.Prefs.get(`${config.addonRef}.dragCite.enable`) !== false && this.isCitationVisible();
     }
 
     public async clear() {

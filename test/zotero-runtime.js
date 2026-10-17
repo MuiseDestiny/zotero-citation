@@ -23,6 +23,28 @@
         await pane.itemsView.refreshAndMaintainSelection();
         await pane.selectItem(item.id);
 
+        const citation = addon.data.citation;
+        const previousSession = Zotero.Integration.currentSession;
+        const citationIndex = pane.itemsView._rowMap[item.id];
+        pane.itemsView.getCellText(citationIndex, views.columnKey);
+        citation.sessions.runtime = { idData: {}, pending: false, lastName: "Runtime" };
+        Zotero.Integration.currentSession = { sessionID: "runtime" };
+        try {
+            await citation.updateCitations(
+                "runtime",
+                { [item.id]: [{ properties: { plainCitation: "[7]" } }] },
+                [item.id],
+                "in-text",
+            );
+            check(
+                pane.itemsView.getCellText(citationIndex, views.columnKey) === "0: [7]",
+                "citation updates invalidate real cached column text outside document collections",
+            );
+        } finally {
+            delete citation.sessions.runtime;
+            Zotero.Integration.currentSession = previousSession;
+        }
+
         const columns = pane.itemsView._getColumns();
         columns.find((column) => column.dataKey === views.columnKey).hidden = false;
         const index = pane.itemsView._rowMap[item.id];

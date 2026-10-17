@@ -1,4 +1,4 @@
-import { diffItemIDs } from "./citationUtils";
+import { diffItemIDs, isLocalItemID } from "./citationUtils";
 import { matchWordDocumentNames, readWordDocuments } from "./wordDocuments";
 
 // Retained only to clean up collections created by releases that used a
@@ -19,6 +19,7 @@ export default class Citation {
     private unnamedDocumentIndex = 0;
     private documentNames = new Map<string, string>();
     private temporaryCollectionKeys = new Set<string>();
+    private displayedSessionID?: string;
 
     constructor() {
         Zotero.ZoteroCitation.api.sessions = this.sessions;
@@ -166,6 +167,15 @@ export default class Citation {
             const sortedItemIDs = this.getSortedItemIDs(integrationSession.citationsByIndex || {});
             await this.updateCitations(sessionID, citationsByItemID, sortedItemIDs, integrationSession.styleClass);
         }
+
+        const currentSessionID = Zotero.Integration.currentSession?.sessionID;
+        const displayedSessionID = currentSessionID && this.sessions[currentSessionID] ? currentSessionID : undefined;
+        if (displayedSessionID !== this.displayedSessionID) {
+            this.displayedSessionID = displayedSessionID;
+            // Switching Word documents can change labels even when neither document changed.
+            const ids = [...new Set(Object.values(this.sessions).flatMap((session) => Object.keys(session.idData)))];
+            if (ids.length) await this.redrawCitationItems(ids.map(Number));
+        }
     }
 
     private async initCollection(sessionID: string, session: SessionData) {
@@ -207,8 +217,8 @@ export default class Citation {
         const sortedItemIDs: number[] = [];
         for (const i in citationsByIndex) {
             citationsByIndex[i].citationItems.forEach((item: { id: number }) => {
-                if (!sortedItemIDs.includes(item.id)) {
-                    sortedItemIDs.push(item.id);
+                if (isLocalItemID(item.id) && !sortedItemIDs.includes(Number(item.id))) {
+                    sortedItemIDs.push(Number(item.id));
                 }
             });
         }
@@ -233,6 +243,9 @@ export default class Citation {
                 .join(", ");
         const targetData: { [id: string]: { plainCitation: string } } = {};
         for (const id of Object.keys(citationsByItemID)) {
+            // Collaborator documents can contain embedded IDs such as sessionID/key.
+            // These are not local Zotero item IDs and must never reach Items.get().
+            if (!isLocalItemID(id)) continue;
             targetData[id] = { plainCitation: getPlainCitation(id) };
         }
 
@@ -250,7 +263,21 @@ export default class Citation {
         const changedIDs = [...new Set([...Object.keys(session.idData), ...Object.keys(targetData)])].map(Number);
         await this.syncCollectionItems(session, targetIDs);
         session.idData = targetData;
-        await Zotero.Notifier.trigger("redraw", "item", changedIDs);
+        await this.redrawCitationItems(changedIDs);
+    }
+
+    private async redrawCitationItems(ids: number[]) {
+        const windows = (Zotero as any).getMainWindows?.();
+        const panes = windows ? windows.map((win: any) => win.ZoteroPane) : [ZoteroPane];
+        for (const pane of panes) {
+            const view = pane?.itemsView;
+            // A redraw alone reuses cached custom-column text in Zotero 9–11.
+            if (view?.invalidateRowCache) view.invalidateRowCache(ids);
+            else if (view?._rowCache) {
+                for (const id of ids) delete view._rowCache[id];
+            }
+        }
+        await Zotero.Notifier.trigger("redraw", "item", ids);
     }
 
     private async syncCollectionItems(session: SessionData, targetIDs: number[]) {

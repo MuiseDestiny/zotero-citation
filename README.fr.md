@@ -56,7 +56,7 @@ Pour conserver une liste, ajoutez les références à votre propre collection or
 
 ### Colonne Citation
 
-Activez **Citation** depuis le menu des en-têtes. Une collection du plugin sélectionnée détermine le document affiché ; ailleurs, la session courante de Zotero est utilisée. Sans session ou citation pertinente, la cellule reste vide.
+Activez **Citation** depuis le menu des en-têtes. Une collection du plugin sélectionnée détermine le document affiché ; ailleurs, la session courante de Zotero est utilisée, ou l’unique session Word en l’absence de session courante. Avec plusieurs sessions sans session courante, aucun document n’est deviné. Sans session ou citation pertinente, la cellule reste vide.
 
 Les styles dans le texte affichent le texte fourni par la session, en regroupant les occurrences. **Pour les styles à notes, le numéro correspond actuellement à l’ordre de première apparition de la référence, pas au numéro réel de chaque note Word.** Après suppression ou déplacement de citations dans Word, cliquez sur **Refresh** : la colonne reflète le dernier état traité par Zotero.
 
@@ -94,6 +94,8 @@ Avec **Citation** visible, glissez des références bibliographiques ordinaires 
 </details>
 
 > Ces démonstrations proviennent d’anciennes versions ; l’interface actuelle peut différer.
+
+Pour conserver la colonne Citation sans citer par glisser-déposer, définissez `extensions.zotero.zoterocitation.dragCite.enable` sur `false` dans l’éditeur de configuration Zotero. Remettez `true` pour le réactiver. Le raccourci clavier reste actif.
 
 ## Fonctionnement technique
 
