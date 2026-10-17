@@ -1,6 +1,6 @@
 # Zotero Citation · Easier Citation
 
-![Zotero Citation](addon/chrome/content/icons/favicon.png)
+<img src="addon/chrome/content/icons/favicon.png" alt="Zotero Citation" width="64">
 
 **English** | [简体中文](README.zh-CN.md) | [Русский](README.ru.md) | [Français](README.fr.md)
 
