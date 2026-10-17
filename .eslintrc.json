@@ -30,20 +30,7 @@
         ],
         "@typescript-eslint/no-unused-vars": "off",
         "@typescript-eslint/no-explicit-any": "off",
-        "@typescript-eslint/no-non-null-withion": "off"
+        "@typescript-eslint/no-non-null-assertion": "off"
     },
-    "ignorePatterns": [
-        "**/build/**",
-        "**/node_modules/**",
-        "scripts/**",
-        "dist/**",
-        "src/libs/**",
-        "**/**/*.js",
-        "**/abbrevIso*",
-        "**/example*",
-        "**/*.bak",
-        "!.vuepress/**",
-        "**/.vuepress/.cache/**",
-        "**/.vuepress/.temp/**"
-    ]
+    "ignorePatterns": ["**/build/**", "**/node_modules/**", "scripts/**", "**/**/*.js", "**/*.bak"]
 }

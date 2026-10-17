@@ -40,6 +40,26 @@
         "url": "https://github.com/muisedestiny/zotero-citation/issues"
     },
     "homepage": "https://github.com/muisedestiny/zotero-citation#readme",
+    "prettier": {
+        "tabWidth": 4,
+        "printWidth": 120
+    },
+    "release-it": {
+        "npm": {
+            "publish": false
+        },
+        "github": {
+            "release": true,
+            "assets": [
+                "build/*.xpi"
+            ]
+        },
+        "hooks": {
+            "before:init": " npm:lint",
+            "after:bump": "npm run build",
+            "after:release": "echo Successfully released ${name} v${version} to ${repo.repository}."
+        }
+    },
     "dependencies": {
         "child_process": "^1.0.2",
         "path": "^0.12.7",
